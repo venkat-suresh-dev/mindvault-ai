@@ -22,17 +22,17 @@ Transform static PDFs into interactive voice experiences using AI. Upload books,
 
 ## 🛠️ Tech Stack
 
-| Technology | Purpose |
-|------------|---------|
-| Next.js 16 | Full-stack React framework |
-| TypeScript | Type safety |
-| MongoDB | Database |
-| Mongoose | Database ORM |
-| Vapi | Voice AI platform |
-| ElevenLabs | AI voice synthesis |
-| Tailwind CSS | Styling |
-| Clerk/Auth | Authentication |
-| PDF Parser | Text extraction |
+| Technology   | Purpose                    |
+| ------------ | -------------------------- |
+| Next.js 16   | Full-stack React framework |
+| TypeScript   | Type safety                |
+| MongoDB      | Database                   |
+| Mongoose     | Database ORM               |
+| Vapi         | Voice AI platform          |
+| ElevenLabs   | AI voice synthesis         |
+| Tailwind CSS | Styling                    |
+| Clerk/Auth   | Authentication             |
+| PDF Parser   | Text extraction            |
 
 ---
 
@@ -40,13 +40,12 @@ Transform static PDFs into interactive voice experiences using AI. Upload books,
 
 ```
 app/
-components/
+components/          # Global UI, layout, and providers
+config/              # Application-wide configuration
+features/
+  home/              # Homepage-specific components, content, and types
 lib/
-models/
-actions/
-hooks/
 public/
-types/
 ```
 
 ---
