@@ -1,39 +1,41 @@
 "use server";
 
-import { bookFormSchema } from "@/features/books/schemas/book-schema";
-import type { CreateBookResult } from "@/features/books/types/book";
-import { auth } from "@clerk/nextjs/server";
+import { createBookForUser } from "@/features/books/services/book.service";
+import { BookValidationError } from "@/features/books/errors/book-errors";
+import type { BookActionResult, BookRecord, CreateBookInput } from "@/features/books/types/book";
+import { createBookMetadataSchema } from "@/features/books/validation/book.validation";
+import { serialize } from "@/lib/db/serialize";
+import { requireAuthenticatedBookUser, toBookActionFailure } from "./book-action-helpers";
 
-export async function createBook(formData: FormData): Promise<CreateBookResult> {
-  const { userId } = await auth();
+export async function createBook(input: CreateBookInput | FormData): Promise<BookActionResult<BookRecord>> {
+  try {
+    const clerkId = await requireAuthenticatedBookUser();
+    const validation = createBookMetadataSchema.safeParse(toCreateBookInput(input));
+    if (!validation.success) return toBookActionFailure(new BookValidationError("Provide valid uploaded file details before creating a book."));
 
-  if (!userId) {
-    return {
-      status: "unauthenticated",
-      message: "Sign in to add books to your personal AI library.",
-    };
+    const book = await createBookForUser(clerkId, validation.data);
+    return { success: true, message: "Book created.", data: serialize(book.toObject()) };
+  } catch (error) {
+    return toBookActionFailure(error);
   }
+}
 
-  const input = {
-    title: formData.get("title"),
-    author: formData.get("author"),
-    pdfFile: formData.get("pdfFile"),
-    coverImage: formData.get("coverImage") || undefined,
-    voicePersona: formData.get("voicePersona"),
-  };
-
-  const validation = bookFormSchema.safeParse(input);
-
-  if (!validation.success) {
-    return {
-      status: "validation-error",
-      message: "Review the book details and try again.",
-    };
-  }
+function toCreateBookInput(input: CreateBookInput | FormData): CreateBookInput {
+  if (!(input instanceof FormData)) return input;
 
   return {
-    status: "not-configured",
-    message:
-      "Your book details are ready. Secure storage and AI processing will be connected next.",
+    title: readFormField(input, "title"),
+    author: readFormField(input, "author"),
+    persona: readFormField(input, "persona") || readFormField(input, "voicePersona") || undefined,
+    fileUrl: readFormField(input, "fileUrl"),
+    fileBlobKey: readFormField(input, "fileBlobKey"),
+    coverUrl: readFormField(input, "coverUrl") || undefined,
+    coverBlobKey: readFormField(input, "coverBlobKey") || undefined,
+    fileSize: Number(readFormField(input, "fileSize")),
   };
+}
+
+function readFormField(formData: FormData, field: string): string {
+  const value = formData.get(field);
+  return typeof value === "string" ? value : "";
 }
