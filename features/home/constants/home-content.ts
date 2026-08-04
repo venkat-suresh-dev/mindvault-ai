@@ -25,10 +25,9 @@ export const HOME_CONTENT = {
     title: "From pages to conversation",
   },
   emptyLibrary: {
-    title: "Your library is ready for its first chapter",
-    description:
-      "Add a book or document and MindVault will make it ready for search, conversation, and voice.",
-    action: "Add New Book",
+    title: "Your library is empty",
+    description: "Upload your first PDF to start chatting with your books.",
+    action: "Upload Book",
   },
 } as const;
 

@@ -57,7 +57,8 @@ export interface BookSegmentInput {
   segmentIndex: number;
   pageNumber: number;
   text: string;
-  tokenCount: number;
+  wordCount: number;
+  characterCount: number;
 }
 
 export interface SaveBookSegmentsInput {

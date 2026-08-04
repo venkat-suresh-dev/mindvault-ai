@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import type { BookRecord } from "@/features/books/types/book";
 
 export interface HomeStep {
   icon: LucideIcon;
@@ -6,18 +7,4 @@ export interface HomeStep {
   description: string;
 }
 
-export interface Book {
-  id: string;
-  slug: string;
-  title: string;
-  author: string;
-  coverUrl: string;
-  voicePersona?: string;
-  createdAt: string;
-  updatedAt: string;
-  ownerId: string;
-  conversationCount: number;
-  totalPages: number;
-  totalSegments: number;
-  lastOpenedAt?: string;
-}
+export type LibraryBook = BookRecord;

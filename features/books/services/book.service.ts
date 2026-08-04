@@ -5,13 +5,17 @@ import {
   DuplicateBookSegmentsError,
 } from "@/features/books/errors/book-errors";
 import {
+  deleteBookByIdForUser,
   findBookByIdForUser,
+  findBooksForUser,
   findBookBySlugForUser,
   insertBook,
   updateBookSegmentCount,
   type BookWriteContext,
 } from "@/features/books/repositories/book.repository";
 import { insertBookSegments } from "@/features/books/repositories/book-segment.repository";
+import { deleteBookSegments } from "@/features/books/repositories/book-segment.repository";
+import { LocalPlaceholderStorage, type StorageProvider } from "@/features/books/services/book-storage.service";
 import { generateSlug } from "@/features/books/utils/generate-slug";
 import { normalizeBookTitle } from "@/features/books/utils/normalize-book-title";
 import type { BookSegmentInput, CreateBookInput } from "@/features/books/types/book";
@@ -51,6 +55,28 @@ export async function getBookBySlugForUser(slug: string, clerkId: string) {
   const book = await findBookBySlugForUser(slug, clerkId);
   if (!book) throw new BookNotFoundError();
   return book;
+}
+
+export async function getBooksForUser(clerkId: string) {
+  return findBooksForUser(clerkId);
+}
+
+export async function deleteBookForUser(
+  bookId: string,
+  clerkId: string,
+  storage: StorageProvider = new LocalPlaceholderStorage(),
+): Promise<void> {
+  const book = await getBookForUser(bookId, clerkId);
+  if (book.processingStatus !== "READY" && book.processingStatus !== "FAILED") {
+    throw new BookValidationError("Books can only be deleted after processing has finished.");
+  }
+
+  const storageKeys = [book.fileBlobKey, book.coverBlobKey].filter((key): key is string => Boolean(key));
+  await Promise.all(storageKeys.map((key) => storage.deleteFile(key)));
+
+  await deleteBookSegments(bookId);
+  const result = await deleteBookByIdForUser(bookId, clerkId);
+  if (result.deletedCount !== 1) throw new BookNotFoundError();
 }
 
 export async function saveBookSegmentsForUser(

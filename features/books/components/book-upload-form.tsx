@@ -11,18 +11,21 @@ import { bookFormSchema, type BookFormValues } from "@/features/books/schemas/bo
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SignInButton, useAuth } from "@clerk/nextjs";
 import { CheckCircle2, LockKeyhole, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { BookFormFields } from "./book-form-fields";
 import { CoverUploadField } from "./cover-upload-field";
 import { PdfUploadField } from "./pdf-upload-field";
 import { UploadLoadingOverlay } from "./upload-loading-overlay";
 import { VoiceSelector } from "./voice-selector";
+import { UploadSuccessState } from "./upload-success-state";
+import type { BookRecord } from "@/features/books/types/book";
 
 export function BookUploadForm() {
   const { isSignedIn } = useAuth();
   const [submissionMessage, setSubmissionMessage] = useState<string>();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [completedBook, setCompletedBook] = useState<BookRecord>();
+  const [isSubmitting, startTransition] = useTransition();
   const form = useForm<BookFormValues>({
     resolver: zodResolver(bookFormSchema),
     defaultValues: {
@@ -65,18 +68,31 @@ export function BookUploadForm() {
     formData.set("voicePersona", values.voicePersona);
     if (values.coverImage) formData.set("coverImage", values.coverImage);
 
-    setIsSubmitting(true);
-    try {
-      const result = await createBook(formData);
-      setSubmissionMessage(result.message);
-    } catch {
-      setSubmissionMessage("We couldn't prepare your book right now. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    startTransition(async () => {
+      try {
+        const result = await createBook(formData);
+        if (result.success && result.data) {
+          setCompletedBook(result.data);
+          return;
+        }
+        setSubmissionMessage(result.message);
+      } catch {
+        setSubmissionMessage("We couldn't prepare your book right now. Please try again.");
+      }
+    });
   };
 
   const disabled = isSubmitting;
+
+  const handleUploadAnother = () => {
+    form.reset();
+    setSubmissionMessage(undefined);
+    setCompletedBook(undefined);
+  };
+
+  if (completedBook) {
+    return <UploadSuccessState bookTitle={completedBook.title} onUploadAnother={handleUploadAnother} />;
+  }
 
   return (
     <Form {...form}>

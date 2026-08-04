@@ -4,7 +4,9 @@ export abstract class BookDomainError extends Error {
     | "BOOK_NOT_FOUND"
     | "UNAUTHORIZED_BOOK_ACCESS"
     | "VALIDATION_ERROR"
-    | "DUPLICATE_SEGMENTS";
+    | "DUPLICATE_SEGMENTS"
+    | "PDF_PROCESSING_ERROR"
+    | "STORAGE_ERROR";
 }
 
 export class DuplicateBookError extends BookDomainError {
@@ -49,6 +51,24 @@ export class DuplicateBookSegmentsError extends BookDomainError {
   public constructor() {
     super("One or more segment indexes already exist for this book.");
     this.name = "DuplicateBookSegmentsError";
+  }
+}
+
+export class PdfProcessingError extends BookDomainError {
+  public readonly code = "PDF_PROCESSING_ERROR";
+
+  public constructor(message = "The PDF could not be processed.", options?: ErrorOptions) {
+    super(message, options);
+    this.name = "PdfProcessingError";
+  }
+}
+
+export class BookStorageError extends BookDomainError {
+  public readonly code = "STORAGE_ERROR";
+
+  public constructor(message = "The uploaded file could not be stored.", options?: ErrorOptions) {
+    super(message, options);
+    this.name = "BookStorageError";
   }
 }
 

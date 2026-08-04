@@ -1,11 +1,14 @@
-import { SAMPLE_BOOKS } from "@/features/home/constants/sample-books";
 import { HOME_CONTENT } from "@/features/home/constants/home-content";
+import type { LibraryBook } from "@/features/home/types/home";
 import { BookGrid } from "./book-grid";
 import { EmptyLibrary } from "./empty-library";
 
-export function LibrarySection() {
+interface LibrarySectionProps {
+  books: LibraryBook[];
+}
+
+export function LibrarySection({ books }: LibrarySectionProps) {
   const { library } = HOME_CONTENT;
-  const books = SAMPLE_BOOKS;
 
   return (
     <section id="library" aria-labelledby="library-heading" className="border-border border-t px-4 py-12 sm:px-6 lg:py-16">

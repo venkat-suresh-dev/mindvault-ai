@@ -1,5 +1,6 @@
 export const BOOK_UPLOAD_LIMITS = {
   pdfBytes: 50 * 1024 * 1024,
+  pdfPages: 2_000,
   coverBytes: 8 * 1024 * 1024,
   title: {
     min: 2,
@@ -9,6 +10,16 @@ export const BOOK_UPLOAD_LIMITS = {
     min: 2,
     max: 120,
   },
+} as const;
+
+export const BOOK_PROCESSING_CONFIG = {
+  chunkSizeWords: 500,
+  chunkOverlapWords: 50,
+} as const;
+
+export const BOOK_SUPPORTED_MIME_TYPES = {
+  pdf: ["application/pdf"],
+  cover: ["image/jpeg", "image/png", "image/webp"],
 } as const;
 
 export const BOOK_UPLOAD_ACCEPT = {

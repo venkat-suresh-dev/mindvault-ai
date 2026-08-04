@@ -1,6 +1,6 @@
 import { Schema, model, models, type InferSchemaType, type Model } from "mongoose";
 
-export const BOOK_PROCESSING_STATUSES = ["UPLOADING", "PROCESSING", "READY", "FAILED"] as const;
+export const BOOK_PROCESSING_STATUSES = ["UPLOADING", "PROCESSING", "PROCESSING_EMBEDDINGS", "READY", "FAILED"] as const;
 export type BookProcessingStatus = (typeof BOOK_PROCESSING_STATUSES)[number];
 
 const bookSchema = new Schema(
