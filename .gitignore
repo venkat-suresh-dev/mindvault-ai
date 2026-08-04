@@ -113,7 +113,6 @@ Thumbs.db
 # AI / Vector Storage
 # -----------------------------------------------------------------------------
 .vectorstore/
-embeddings/
 chroma/
 faiss/
 
