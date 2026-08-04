@@ -6,7 +6,8 @@ export abstract class BookDomainError extends Error {
     | "VALIDATION_ERROR"
     | "DUPLICATE_SEGMENTS"
     | "PDF_PROCESSING_ERROR"
-    | "STORAGE_ERROR";
+    | "STORAGE_ERROR"
+    | "STORAGE_CLEANUP_PENDING";
 }
 
 export class DuplicateBookError extends BookDomainError {
@@ -69,6 +70,15 @@ export class BookStorageError extends BookDomainError {
   public constructor(message = "The uploaded file could not be stored.", options?: ErrorOptions) {
     super(message, options);
     this.name = "BookStorageError";
+  }
+}
+
+export class BookStorageCleanupPendingError extends BookDomainError {
+  public readonly code = "STORAGE_CLEANUP_PENDING";
+
+  public constructor() {
+    super("The book was removed, but file cleanup is pending.");
+    this.name = "BookStorageCleanupPendingError";
   }
 }
 

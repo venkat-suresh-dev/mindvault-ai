@@ -17,7 +17,7 @@ export interface Book {
   author: string;
   slug: string;
   coverUrl?: string;
-  fileUrl: string;
+  fileUrl?: string;
   voicePersona: VoicePersonaId;
   createdAt: string;
   updatedAt: string;
@@ -27,7 +27,7 @@ export interface CreateBookInput {
   title: string;
   author: string;
   persona?: string;
-  fileUrl: string;
+  fileUrl?: string;
   fileBlobKey: string;
   coverUrl?: string;
   coverBlobKey?: string;
@@ -42,8 +42,8 @@ export interface BookRecord {
   slug: string;
   author: string;
   persona?: string | null;
-  fileUrl: string;
-  fileBlobKey: string;
+  fileUrl?: string | null;
+  fileBlobKey?: string | null;
   coverUrl?: string | null;
   coverBlobKey?: string | null;
   fileSize: number;
@@ -51,6 +51,13 @@ export interface BookRecord {
   processingStatus: BookProcessingStatus;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface BookDetailsRecord extends BookRecord {
+  embedding: {
+    model?: string;
+    dimensions?: number;
+  };
 }
 
 export interface BookSegmentInput {

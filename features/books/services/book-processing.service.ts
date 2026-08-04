@@ -6,7 +6,7 @@ import { updateBookProcessingStatus } from "@/features/books/repositories/book.r
 import { createBookForUser, getBookForUser, saveBookSegmentsForUser } from "@/features/books/services/book.service";
 import { ChunkService } from "@/features/books/services/chunk.service";
 import { EmbeddingService } from "@/features/books/services/embedding.service";
-import { LocalPlaceholderStorage, type StorageProvider } from "@/features/books/services/book-storage.service";
+import { type StorageProvider, VercelBlobStorage } from "@/features/books/services/storage";
 import { PdfService } from "@/features/books/services/pdf.service";
 import type { BookRecord } from "@/features/books/types/book";
 import { serialize } from "@/lib/db/serialize";
@@ -21,7 +21,7 @@ export interface ProcessBookUploadInput {
 
 export class BookProcessingService {
   public constructor(
-    private readonly storage: StorageProvider = new LocalPlaceholderStorage(),
+    private readonly storage: StorageProvider = new VercelBlobStorage(),
     private readonly pdfService = new PdfService(),
     private readonly chunkService = new ChunkService(),
     private readonly embeddingService = new EmbeddingService(),
@@ -33,9 +33,9 @@ export class BookProcessingService {
     let segmentsSaved = false;
 
     try {
-      const pdfUpload = await this.storage.uploadFile(input.pdfFile, "books");
+      const pdfUpload = await this.storage.uploadPdf(input.pdfFile, clerkId);
       uploadedKeys.push(pdfUpload.key);
-      const coverUpload = input.coverImage ? await this.storage.uploadFile(input.coverImage, "covers") : undefined;
+      const coverUpload = input.coverImage ? await this.storage.uploadCover(input.coverImage, clerkId) : undefined;
       if (coverUpload) uploadedKeys.push(coverUpload.key);
 
       const extractedPdf = await this.pdfService.extract(input.pdfFile);
@@ -46,9 +46,7 @@ export class BookProcessingService {
         title: input.title,
         author: input.author,
         persona: input.persona,
-        fileUrl: pdfUpload.url,
         fileBlobKey: pdfUpload.key,
-        coverUrl: coverUpload?.url,
         coverBlobKey: coverUpload?.key,
         fileSize: input.pdfFile.size,
       });
@@ -78,6 +76,6 @@ export class BookProcessingService {
   }
 
   private async deleteUploadedFiles(keys: string[]): Promise<void> {
-    await Promise.allSettled(keys.map((key) => this.storage.deleteFile(key)));
+    await Promise.allSettled(keys.map((key) => this.storage.delete(key)));
   }
 }

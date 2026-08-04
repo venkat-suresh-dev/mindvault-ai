@@ -1,11 +1,12 @@
 import {
   BookNotFoundError,
   BookValidationError,
+  BookStorageCleanupPendingError,
   DuplicateBookError,
   DuplicateBookSegmentsError,
 } from "@/features/books/errors/book-errors";
 import {
-  deleteBookByIdForUser,
+  deleteBookAndSegmentsForUser,
   findBookByIdForUser,
   findBooksForUser,
   findBookBySlugForUser,
@@ -13,9 +14,8 @@ import {
   updateBookSegmentCount,
   type BookWriteContext,
 } from "@/features/books/repositories/book.repository";
-import { insertBookSegments } from "@/features/books/repositories/book-segment.repository";
-import { deleteBookSegments } from "@/features/books/repositories/book-segment.repository";
-import { LocalPlaceholderStorage, type StorageProvider } from "@/features/books/services/book-storage.service";
+import { findBookEmbeddingSummary, insertBookSegments } from "@/features/books/repositories/book-segment.repository";
+import { type StorageProvider, VercelBlobStorage } from "@/features/books/services/storage";
 import { generateSlug } from "@/features/books/utils/generate-slug";
 import { normalizeBookTitle } from "@/features/books/utils/normalize-book-title";
 import type { BookSegmentInput, CreateBookInput } from "@/features/books/types/book";
@@ -57,6 +57,12 @@ export async function getBookBySlugForUser(slug: string, clerkId: string) {
   return book;
 }
 
+export async function getBookDetailsBySlugForUser(slug: string, clerkId: string) {
+  const book = await getBookBySlugForUser(slug, clerkId);
+  const embedding = await findBookEmbeddingSummary(book._id.toString());
+  return { ...book, embedding };
+}
+
 export async function getBooksForUser(clerkId: string) {
   return findBooksForUser(clerkId);
 }
@@ -64,7 +70,7 @@ export async function getBooksForUser(clerkId: string) {
 export async function deleteBookForUser(
   bookId: string,
   clerkId: string,
-  storage: StorageProvider = new LocalPlaceholderStorage(),
+  storage: StorageProvider = new VercelBlobStorage(),
 ): Promise<void> {
   const book = await getBookForUser(bookId, clerkId);
   if (book.processingStatus !== "READY" && book.processingStatus !== "FAILED") {
@@ -72,11 +78,11 @@ export async function deleteBookForUser(
   }
 
   const storageKeys = [book.fileBlobKey, book.coverBlobKey].filter((key): key is string => Boolean(key));
-  await Promise.all(storageKeys.map((key) => storage.deleteFile(key)));
+  const deleted = await deleteBookAndSegmentsForUser(bookId, clerkId);
+  if (!deleted) throw new BookNotFoundError();
 
-  await deleteBookSegments(bookId);
-  const result = await deleteBookByIdForUser(bookId, clerkId);
-  if (result.deletedCount !== 1) throw new BookNotFoundError();
+  const cleanup = await Promise.allSettled(storageKeys.map((key) => storage.delete(key)));
+  if (cleanup.some((result) => result.status === "rejected")) throw new BookStorageCleanupPendingError();
 }
 
 export async function saveBookSegmentsForUser(

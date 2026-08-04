@@ -27,9 +27,22 @@ export async function insertBookSegments(segments: BookSegmentInsert[], session?
   return BookSegmentModel.insertMany(segments, { ordered: true, session });
 }
 
-export async function deleteBookSegments(bookId: string) {
+export async function deleteBookSegments(bookId: string, session?: ClientSession) {
   await connectToDatabase();
-  return BookSegmentModel.deleteMany({ bookId });
+  return BookSegmentModel.deleteMany({ bookId }, { session });
+}
+
+export interface BookEmbeddingSummary {
+  model?: string;
+  dimensions?: number;
+}
+
+export async function findBookEmbeddingSummary(bookId: string): Promise<BookEmbeddingSummary> {
+  await connectToDatabase();
+  const segment = await BookSegmentModel.findOne({ bookId, embeddingModel: { $exists: true } })
+    .select({ embeddingModel: 1, embeddingDimensions: 1 })
+    .lean();
+  return { model: segment?.embeddingModel ?? undefined, dimensions: segment?.embeddingDimensions ?? undefined };
 }
 
 export async function findBookSegmentsWithoutEmbeddings(bookId: string): Promise<PersistedBookSegment[]> {

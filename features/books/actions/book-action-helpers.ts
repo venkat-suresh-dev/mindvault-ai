@@ -35,6 +35,8 @@ export function toBookActionFailure(error: unknown): ActionResult<never> {
         return actionFailure("PDF_PROCESSING_ERROR", error.message);
       case "STORAGE_ERROR":
         return actionFailure("STORAGE_ERROR", error.message);
+      case "STORAGE_CLEANUP_PENDING":
+        return actionFailure("STORAGE_ERROR", error.message);
     }
   }
 

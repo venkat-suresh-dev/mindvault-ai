@@ -35,7 +35,12 @@ The application should be built as a production-grade SaaS product.
 
 ## Storage
 
-- Vercel Blob (planned)
+- Vercel Blob
+- Private Blob storage for user-owned documents
+- Blob access must always be controlled through Clerk authentication and database ownership checks
+- Never expose Blob tokens client-side
+- Store Blob identifiers/keys in MongoDB
+- Do not rely on permanent public URLs for private files
 
 ## AI Infrastructure
 
@@ -61,15 +66,17 @@ Current pattern:
 features/
 
   books/
-    components/
     actions/
-    services/
-    repositories/
-    models/
-    schemas/
+    components/
     constants/
-    types/
     errors/
+    models/
+    repositories/
+    schemas/
+    services/
+    types/
+    utils/
+    validation/
 
   home/
     components/
@@ -77,10 +84,8 @@ features/
     types/
 
   voice/
-    services/
     models/
 
-  search/
 ```
 
 ```
@@ -113,6 +118,7 @@ mindvault-ai
 │   │   └── theme-provider.tsx
 │   ├── theme-toggle.tsx
 │   └── ui
+│       ├── alert-dialog.tsx
 │       ├── button.tsx
 │       ├── form.tsx
 │       ├── input.tsx
@@ -127,6 +133,7 @@ mindvault-ai
 │   │   ├── actions
 │   │   │   ├── book-action-helpers.ts
 │   │   │   ├── create-book.ts
+│   │   │   ├── delete-book.ts
 │   │   │   ├── find-book-by-slug.ts
 │   │   │   ├── get-book.ts
 │   │   │   └── save-book-segments.ts
@@ -137,6 +144,7 @@ mindvault-ai
 │   │   │   ├── new-book-page.tsx
 │   │   │   ├── pdf-upload-field.tsx
 │   │   │   ├── upload-loading-overlay.tsx
+│   │   │   ├── upload-success-state.tsx
 │   │   │   └── voice-selector.tsx
 │   │   ├── constants
 │   │   │   ├── book-upload.ts
@@ -157,6 +165,7 @@ mindvault-ai
 │   │   │   ├── book-storage.service.ts
 │   │   │   ├── book.service.ts
 │   │   │   ├── chunk.service.ts
+│   │   │   ├── embedding.service.ts
 │   │   │   └── pdf.service.ts
 │   │   ├── types
 │   │   │   ├── book-processing.ts
@@ -177,8 +186,7 @@ mindvault-ai
 │   │   │   ├── how-it-works-card.tsx
 │   │   │   └── library-section.tsx
 │   │   ├── constants
-│   │   │   ├── home-content.ts
-│   │   │   └── sample-books.ts
+│   │   │   └── home-content.ts
 │   │   ├── index.ts
 │   │   └── types
 │   │       └── home.ts
@@ -186,6 +194,16 @@ mindvault-ai
 │       └── models
 │           └── voice-session.model.ts
 ├── lib
+│   ├── ai
+│   │   └── embeddings
+│   │       ├── embedding-errors.ts
+│   │       ├── embedding-provider.ts
+│   │       ├── gemini
+│   │       │   └── gemini-embedding-provider.ts
+│   │       ├── index.ts
+│   │       └── types.ts
+│   ├── config
+│   │   └── ai.config.ts
 │   ├── db
 │   │   ├── action-result.ts
 │   │   ├── connection.ts
@@ -209,6 +227,26 @@ mindvault-ai
 
 Do not create large global folders containing feature-specific code.
 
+Note:
+The repository structure may evolve as new features are added.
+
+For the current Vercel Blob + Book Details milestone, expected additions include:
+
+features/books/services/storage/
+
+    storage-provider.ts
+    vercel-blob-storage.ts
+    blob-access.service.ts
+
+app/books/[slug]/
+
+    page.tsx
+
+features/books/components/
+
+    book-details-page.tsx
+
+These must follow existing feature-first boundaries.
 ---
 
 # Folder Responsibilities
@@ -324,6 +362,19 @@ Avoid unnecessary:
 
 ---
 
+# Next.js Rendering Rules
+
+User-specific pages must not be statically cached.
+
+For authenticated routes:
+
+- verify authentication server-side
+- verify ownership server-side
+- use appropriate dynamic rendering behavior
+- never allow one user's private data to appear in another user's cached response
+
+---
+
 # TypeScript Rules
 
 Strict TypeScript required.
@@ -394,6 +445,37 @@ All schemas should include:
 
 ---
 
+# Private Storage Rules
+
+Vercel Blob is private storage.
+
+Rules:
+
+- Never expose BLOB_READ_WRITE_TOKEN to clients.
+- Never call Blob SDK directly from React components.
+- Blob operations belong inside storage services.
+- Authorization must happen before generating file access.
+- Verify Clerk authentication and database ownership before serving files.
+- Store blob keys in database records.
+- Do not use blob metadata as an authorization mechanism.
+- Do not create custom signing algorithms.
+- Prefer official Vercel Blob access mechanisms.
+- Keep storage provider replaceable through abstraction.
+
+Storage flow:
+
+User
+|
+Clerk Authentication
+|
+Ownership Verification
+|
+Storage Service
+|
+Authorized File Access
+
+---
+
 # Server Action Rules
 
 Server actions must:
@@ -443,7 +525,7 @@ Never expose raw database/parser errors to users.
 
 # PDF Processing Rules
 
-PDF pipeline:
+Current PDF pipeline:
 
 ```
 Upload
@@ -460,9 +542,11 @@ Chunking
  |
 Database Storage
  |
-Embeddings (future)
+Embedding Generation
 ```
 
+Embeddings are already implemented.
+Future work should extend the pipeline, not replace it.
 Extraction belongs only inside:
 
 ```
@@ -496,16 +580,16 @@ Future compatibility:
 
 Do not generate embeddings unnecessarily.
 
-Architecture should support:
+Architecture currently supports:
 
 ```
 BookSegment
       |
       |
-Embedding generation
+Gemini Embedding generation
       |
       |
-Vector database
+Future vector database
       |
       |
 RAG retrieval
@@ -725,12 +809,13 @@ Completed:
 ✓ Book models
 ✓ Server actions
 ✓ PDF processing pipeline
+✓ Gemini embeddings
 
 Upcoming:
 
-- Vercel Blob storage
-- Better PDF extraction
-- Embeddings
+- Vercel Blob production storage
+- Book details dashboard
+- PDF viewer
 - Vector search
 - RAG chat
 - Citations

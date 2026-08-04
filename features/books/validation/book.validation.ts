@@ -6,7 +6,7 @@ export const createBookMetadataSchema = z.object({
   title: z.string().trim().min(BOOK_UPLOAD_LIMITS.title.min).max(BOOK_UPLOAD_LIMITS.title.max),
   author: z.string().trim().min(BOOK_UPLOAD_LIMITS.author.min).max(BOOK_UPLOAD_LIMITS.author.max),
   persona: z.enum(VOICE_PERSONA_IDS).optional(),
-  fileUrl: z.string().url(),
+  fileUrl: z.string().url().optional(),
   fileBlobKey: z.string().trim().min(1).max(512),
   coverUrl: z.string().url().optional(),
   coverBlobKey: z.string().trim().min(1).max(512).optional(),

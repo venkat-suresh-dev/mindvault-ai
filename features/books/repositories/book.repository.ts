@@ -1,4 +1,5 @@
 import { BookModel, type BookProcessingStatus } from "@/features/books/models/book.model";
+import { BookSegmentModel } from "@/features/books/models/book-segment.model";
 import type { BookRecord } from "@/features/books/types/book";
 import { connectToDatabase } from "@/lib/db/connection";
 import type { ClientSession } from "mongoose";
@@ -14,7 +15,7 @@ interface CreateBookDocument {
   slug: string;
   author: string;
   persona?: string;
-  fileUrl: string;
+  fileUrl?: string;
   fileBlobKey: string;
   coverUrl?: string;
   coverBlobKey?: string;
@@ -64,6 +65,24 @@ export async function findBooksForUser(clerkId: string): Promise<BookRecord[]> {
 export async function deleteBookByIdForUser(bookId: string, clerkId: string) {
   await connectToDatabase();
   return BookModel.deleteOne({ _id: bookId, clerkId });
+}
+
+export async function deleteBookAndSegmentsForUser(bookId: string, clerkId: string): Promise<boolean> {
+  const connection = await connectToDatabase();
+  const session = await connection.startSession();
+
+  try {
+    let deleted = false;
+    await session.withTransaction(async () => {
+      await BookSegmentModel.deleteMany({ bookId }, { session });
+      const result = await BookModel.deleteOne({ _id: bookId, clerkId }, { session });
+      deleted = result.deletedCount === 1;
+      if (!deleted) throw new Error("Book deletion did not complete.");
+    });
+    return deleted;
+  } finally {
+    await session.endSession();
+  }
 }
 
 export async function updateBookSegmentCount(bookId: string, totalSegments: number, context: BookWriteContext = {}) {
