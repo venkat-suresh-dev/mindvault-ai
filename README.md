@@ -1,168 +1,144 @@
-# 📚 MindVault AI
+# MindVault AI
 
-> AI-powered platform for real-time voice conversations with your books.
+**A private, AI-powered knowledge workspace for the books and documents that matter to you.**
 
-Transform static PDFs into interactive voice experiences using AI. Upload books, talk naturally with them using voice, and receive intelligent responses powered by modern LLMs, natural speech synthesis, and conversational AI.
+MindVault AI turns uploaded PDFs into a searchable personal library. Ask natural-language questions about a book, receive streamed answers grounded in its content, and follow citations back to the relevant source material—without treating your documents as public files.
 
----
+## Features
 
-## ✨ Features
+- Clerk-based user authentication
+- PDF book and document uploads
+- Private, user-owned document storage with Vercel Blob
+- PDF extraction and ordered text chunking
+- Gemini-powered embedding generation
+- MongoDB Atlas Vector Search over document segments
+- Retrieval-Augmented Generation (RAG) for grounded answers
+- Book-scoped AI conversations with streaming responses
+- Citation-backed answers linked to source pages
+- Protected in-app document viewing
+- Light, dark, and system theme support
 
-- 📄 Upload PDF books
-- 🎙️ Real-time voice conversations
-- 🤖 AI-powered question answering
-- 🔊 Natural voice synthesis with ElevenLabs
-- 📞 Voice agent integration using Vapi
-- 📝 Session transcripts
-- 🔐 Secure user authentication
-- 📚 Personal library management
-- ⚡ Fast and responsive Next.js 16 application
+## How it works
 
----
-
-## 🛠️ Tech Stack
-
-| Technology   | Purpose                    |
-| ------------ | -------------------------- |
-| Next.js 16   | Full-stack React framework |
-| TypeScript   | Type safety                |
-| MongoDB      | Database                   |
-| Mongoose     | Database ORM               |
-| Vapi         | Voice AI platform          |
-| ElevenLabs   | AI voice synthesis         |
-| Tailwind CSS | Styling                    |
-| Clerk/Auth   | Authentication             |
-| PDF Parser   | Text extraction            |
-
----
-
-## 📁 Project Structure
-
+```text
+Upload document
+      ↓
+Private storage
+      ↓
+PDF extraction
+      ↓
+Text chunking
+      ↓
+Embeddings generation
+      ↓
+MongoDB Atlas Vector Search
+      ↓
+Relevant context retrieval
+      ↓
+Gemini response generation
+      ↓
+Answer with citations
 ```
-app/
-components/          # Global UI, layout, and providers
-config/              # Application-wide configuration
+
+MindVault preserves page and ordering metadata when it creates document segments. At question time, retrieval is scoped to the authenticated user's selected book; the generation layer receives only the prepared, relevant context.
+
+## Technology stack
+
+| Category       | Technologies                                                                        |
+| -------------- | ----------------------------------------------------------------------------------- |
+| Frontend       | Next.js 16 App Router, React 19, TypeScript, Tailwind CSS, shadcn/ui                |
+| Authentication | Clerk                                                                               |
+| Database       | MongoDB Atlas, Mongoose                                                             |
+| Storage        | Vercel Blob private storage                                                         |
+| AI             | Gemini embeddings, Gemini generation, MongoDB Atlas Vector Search, RAG architecture |
+
+## Architecture
+
+MindVault AI uses a feature-first, domain-driven structure designed to keep product code easy to evolve. UI composition, business services, repositories, and shared infrastructure have clear boundaries:
+
+```text
 features/
-  home/              # Homepage-specific components, content, and types
+  books/   # upload, processing, storage, models, and book UI
+  chat/    # chat UI, context construction, and conversation services
+  search/  # embedding search and vector retrieval
 lib/
-public/
+  ai/      # replaceable embedding and generation providers
+  db/      # database connection and shared persistence utilities
+app/       # route composition and thin route handlers
 ```
 
----
+Server Components are the default. Route handlers authenticate, validate, and manage HTTP transport while services coordinate workflows and repositories encapsulate database access.
 
-## 🚀 Getting Started
+## Security and privacy
 
-### Clone the repository
+Documents are private and owned by individual users. Clerk authentication and server-side ownership checks are enforced before protected files, books, or vector-search results are accessed. Vercel Blob credentials remain server-side; blob keys are stored in MongoDB and are never used as a substitute for authorization.
 
-```bash
-git clone https://github.com/yourusername/mindvault-ai.git
-```
+## Development setup
 
-### Navigate to the project
+### Prerequisites
 
-```bash
-cd mindvault-ai
-```
+- Node.js
+- A MongoDB Atlas account and database
+- A Clerk application
+- A Gemini API key
+- A Vercel Blob store configured for private document storage
 
-### Install dependencies
+### Installation
 
 ```bash
 npm install
 ```
 
-### Configure environment variables
+### Environment variables
 
-Create a `.env.local` file.
+Create a `.env.local` file. The application reads these variables directly:
 
 ```env
 MONGODB_URI=
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
-CLERK_SECRET_KEY=
-
-VAPI_API_KEY=
-NEXT_PUBLIC_VAPI_PUBLIC_KEY=
-
-ELEVENLABS_API_KEY=
-
-OPENAI_API_KEY=
+GOOGLE_GEMINI_API_KEY=
+BLOB_READ_WRITE_TOKEN=
 ```
 
-### Run the development server
+Also configure the Clerk environment variables provided by your Clerk application. Refer to Clerk's Next.js setup documentation for the values appropriate to your instance; do not commit any credentials.
+
+### Run locally
 
 ```bash
 npm run dev
 ```
 
-Open:
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-```
-http://localhost:3000
-```
+## Roadmap
 
----
+- Conversation history
+- Multi-book search
+- AI summaries
+- Flashcards
+- Quiz generation
+- Mind maps
+- Voice conversations
+- Subscription limits
+- Analytics
 
-## 🎯 Roadmap
+## Engineering principles
 
-- [x] Authentication
-- [x] PDF upload
-- [x] PDF text extraction
-- [x] Voice conversations
-- [x] Session history
-- [ ] Multi-document support
-- [ ] Retrieval-Augmented Generation (RAG)
-- [ ] Semantic search
-- [ ] AI Notebook
-- [ ] AI Personas
-- [ ] Learning analytics
-- [ ] Flashcards & quizzes
-- [ ] AI Podcast mode
+MindVault AI is built with SOLID principles, strict TypeScript, clean architecture, and a production-focused approach to privacy, maintainability, and scale.
 
----
+## Screenshots
 
-## 📸 Screenshots
+### Home
 
-Coming soon.
+![Home](screenshots/Home.jpeg)
 
----
+### Add a Book
 
-## 📖 How It Works
+![Add New](screenshots/Add%20New.jpeg)
 
-1. Upload a PDF book.
-2. Extract the document text.
-3. Start a voice conversation.
-4. AI answers using the uploaded content.
-5. View transcripts and revisit conversations.
+### Book Details
 
----
+![Book Details](screenshots/Book%20Details.jpeg)
 
-## 📌 Future Improvements
+### Dark Mode
 
-- Multi-document conversations
-- Vector search
-- Source citations
-- Conversation memory
-- EPUB & DOCX support
-- AI-generated notes
-- Study dashboard
-- Mobile PWA
-- Team collaboration
-
----
-
-## 🤝 Contributing
-
-Contributions, issues, and feature requests are welcome.
-
-Feel free to open an issue or submit a pull request.
-
----
-
-## 📄 License
-
-MIT License
-
----
-
-## ⭐ Support
-
-If you found this project helpful, consider giving it a ⭐ on GitHub.
+![Dark Mode](screenshots/Dark%20Mode.jpeg)

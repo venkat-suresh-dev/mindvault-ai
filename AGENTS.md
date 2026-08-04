@@ -44,13 +44,23 @@ The application should be built as a production-grade SaaS product.
 
 ## AI Infrastructure
 
+Implemented:
+
+- Gemini embeddings
+- BookSegment embedding generation
+- MongoDB Atlas Vector Search
+- RAG retrieval pipeline
+- Gemini generation provider
+- Streaming AI responses
+- Citation system
+- Book-scoped AI chat
+
 Planned:
 
-- Embeddings
-- Vector search
-- RAG pipeline
-- Voice conversations
+- Conversation history
+- Multi-book search
 - AI personas
+- Voice conversations
 
 ---
 
@@ -64,27 +74,40 @@ Current pattern:
 
 ```
 features/
-
-  books/
-    actions/
-    components/
-    constants/
-    errors/
-    models/
-    repositories/
-    schemas/
-    services/
-    types/
-    utils/
-    validation/
-
-  home/
-    components/
-    constants/
-    types/
-
-  voice/
-    models/
+├── books/
+│   ├── actions/
+│   ├── components/
+│   ├── constants/
+│   ├── errors/
+│   ├── models/
+│   ├── repositories/
+│   ├── schemas/
+│   ├── services/
+│   │   ├── storage/
+│   │   └── *.service.ts
+│   ├── types/
+│   ├── utils/
+│   ├── validation/
+│   └── index.ts
+│
+├── chat/
+│   ├── components/
+│   ├── services/
+│   └── types/
+│
+├── home/
+│   ├── components/
+│   ├── constants/
+│   ├── types/
+│   └── index.ts
+│
+├── search/
+│   ├── repositories/
+│   ├── services/
+│   └── types/
+│
+└── voice/
+    └── models/
 
 ```
 
@@ -95,7 +118,20 @@ mindvault-ai
 ├── CLAUDE.md
 ├── README.md
 ├── app
+│   ├── api
+│   │   └── books
+│   │       └── [slug]
+│   │           ├── chat
+│   │           │   └── route.ts
+│   │           ├── cover
+│   │           │   └── route.ts
+│   │           └── file
+│   │               └── route.ts
 │   ├── books
+│   │   ├── [slug]
+│   │   │   ├── error.tsx
+│   │   │   ├── loading.tsx
+│   │   │   └── page.tsx
 │   │   └── new
 │   │       └── page.tsx
 │   ├── favicon.ico
@@ -127,6 +163,8 @@ mindvault-ai
 ├── components.json
 ├── config
 │   └── navigation.ts
+├── docs
+│   └── atlas-vector-search.md
 ├── eslint.config.mjs
 ├── features
 │   ├── books
@@ -138,11 +176,16 @@ mindvault-ai
 │   │   │   ├── get-book.ts
 │   │   │   └── save-book-segments.ts
 │   │   ├── components
+│   │   │   ├── book-cover.tsx
+│   │   │   ├── book-delete-button.tsx
+│   │   │   ├── book-details-page.tsx
 │   │   │   ├── book-form-fields.tsx
 │   │   │   ├── book-upload-form.tsx
 │   │   │   ├── cover-upload-field.tsx
 │   │   │   ├── new-book-page.tsx
 │   │   │   ├── pdf-upload-field.tsx
+│   │   │   ├── pdf-viewer-container.tsx
+│   │   │   ├── pdf-viewer.tsx
 │   │   │   ├── upload-loading-overlay.tsx
 │   │   │   ├── upload-success-state.tsx
 │   │   │   └── voice-selector.tsx
@@ -162,11 +205,15 @@ mindvault-ai
 │   │   │   └── book-schema.ts
 │   │   ├── services
 │   │   │   ├── book-processing.service.ts
-│   │   │   ├── book-storage.service.ts
 │   │   │   ├── book.service.ts
 │   │   │   ├── chunk.service.ts
 │   │   │   ├── embedding.service.ts
-│   │   │   └── pdf.service.ts
+│   │   │   ├── pdf.service.ts
+│   │   │   └── storage
+│   │   │       ├── blob-access.service.ts
+│   │   │       ├── index.ts
+│   │   │       ├── storage-provider.ts
+│   │   │       └── vercel-blob-storage.ts
 │   │   ├── types
 │   │   │   ├── book-processing.ts
 │   │   │   └── book.ts
@@ -175,6 +222,18 @@ mindvault-ai
 │   │   │   └── normalize-book-title.ts
 │   │   └── validation
 │   │       └── book.validation.ts
+│   ├── chat
+│   │   ├── components
+│   │   │   ├── book-chat.tsx
+│   │   │   ├── chat-input.tsx
+│   │   │   ├── chat-message.tsx
+│   │   │   ├── citation-list.tsx
+│   │   │   └── markdown-response.tsx
+│   │   ├── services
+│   │   │   ├── chat.service.ts
+│   │   │   └── context-builder.service.ts
+│   │   └── types
+│   │       └── chat.ts
 │   ├── home
 │   │   ├── components
 │   │   │   ├── book-card.tsx
@@ -190,16 +249,29 @@ mindvault-ai
 │   │   ├── index.ts
 │   │   └── types
 │   │       └── home.ts
+│   ├── search
+│   │   ├── repositories
+│   │   │   └── vector-search.repository.ts
+│   │   ├── services
+│   │   │   ├── embedding-search.service.ts
+│   │   │   └── retrieval.service.ts
+│   │   └── types
+│   │       └── search.ts
 │   └── voice
 │       └── models
 │           └── voice-session.model.ts
 ├── lib
 │   ├── ai
-│   │   └── embeddings
-│   │       ├── embedding-errors.ts
-│   │       ├── embedding-provider.ts
-│   │       ├── gemini
-│   │       │   └── gemini-embedding-provider.ts
+│   │   ├── embeddings
+│   │   │   ├── embedding-errors.ts
+│   │   │   ├── embedding-provider.ts
+│   │   │   ├── gemini
+│   │   │   │   └── gemini-embedding-provider.ts
+│   │   │   ├── index.ts
+│   │   │   └── types.ts
+│   │   └── generation
+│   │       ├── chat-provider.ts
+│   │       ├── gemini-chat-provider.ts
 │   │       ├── index.ts
 │   │       └── types.ts
 │   ├── config
@@ -222,6 +294,11 @@ mindvault-ai
 │   │   └── mindvault-library-hero.png
 │   ├── vercel.svg
 │   └── window.svg
+├── screenshots
+│   ├── Add New.jpeg
+│   ├── Book Details.jpeg
+│   ├── Dark Mode.jpeg
+│   └── Home.jpeg
 └── tsconfig.json
 ```
 
@@ -375,6 +452,58 @@ For authenticated routes:
 
 ---
 
+# Route Handler Rules
+
+Route handlers must:
+
+- authenticate requests
+- validate inputs
+- enforce ownership
+- delegate business logic to services
+- return proper HTTP responses
+
+Never place:
+
+- database queries
+- AI orchestration
+- business logic
+
+directly inside route handlers.
+
+---
+
+# Authorization Rules
+
+Authentication must be enforced at every server boundary.
+
+Requirements:
+
+- Client-side checks are only for UX.
+- Server actions must always verify authentication.
+- Route handlers must always verify authentication.
+- Services receiving user-owned operations must receive authenticated user context.
+- Database queries involving user-owned data must always include ownership filtering.
+- Storage operations must never execute before ownership verification.
+- Never trust user identifiers, ownership fields, or resource IDs received from the client without server-side verification.
+
+Example flow:
+
+User Action
+|
+Client Validation
+|
+Server Authentication
+|
+Ownership Verification
+|
+Service
+|
+Repository
+|
+Database/Storage
+
+---
+
 # TypeScript Rules
 
 Strict TypeScript required.
@@ -420,6 +549,51 @@ Never directly query MongoDB inside:
 - components
 - pages
 - UI code
+
+## Vector Search Rules
+
+Vector search must use the existing BookSegment embedding data.
+
+Rules:
+
+- Do not create a separate vector database unless explicitly required.
+- Prefer MongoDB Atlas Vector Search.
+- Vector queries must always include ownership filtering.
+- Store vector search logic inside repositories/services.
+- Do not execute vector queries directly from UI or actions.
+
+---
+
+# Repository Rules
+
+Repositories own database access.
+
+Rules:
+
+- No business logic.
+- No AI provider calls.
+- No authentication logic.
+- Return domain models or typed DTOs.
+- Encapsulate MongoDB queries and aggregation pipelines.
+
+---
+
+# Service Rules
+
+Services own business logic.
+
+Services may:
+
+- coordinate repositories
+- coordinate AI providers
+- perform validation
+- orchestrate workflows
+
+Services must not:
+
+- render UI
+- directly handle HTTP transport
+- contain React code
 
 ---
 
@@ -532,7 +706,7 @@ Upload
  |
 Validation
  |
-Storage
+Private Blob Storage
  |
 PDF Extraction
  |
@@ -559,20 +733,32 @@ Never parse PDFs inside components/actions.
 
 # Chunking Rules
 
-Book text should be prepared for future RAG.
+Book text is prepared for RAG retrieval.
 
-Chunks should preserve:
+Chunks must preserve:
 
 - page information
 - ordering
 - metadata
 
-Future compatibility:
+These guarantees support:
 
-- embeddings
-- vector database
+- embedding generation
+- MongoDB Atlas Vector Search
 - citations
-- semantic search
+- semantic retrieval
+- future AI features (summaries, flashcards, quizzes, multi-book search)
+
+---
+
+# Dependency Rules
+
+Before adding new dependencies:
+
+- verify the package solves a real architectural need
+- prefer maintained libraries
+- avoid duplicate functionality
+- document why the dependency exists
 
 ---
 
@@ -580,19 +766,30 @@ Future compatibility:
 
 Do not generate embeddings unnecessarily.
 
-Architecture currently supports:
+Architecture:
 
 ```
 BookSegment
-      |
-      |
-Gemini Embedding generation
-      |
-      |
-Future vector database
-      |
-      |
-RAG retrieval
+      │
+      ▼
+Gemini Embedding Generation
+      │
+      ▼
+MongoDB Atlas Vector Search
+
+User Question
+      │
+      ▼
+Query Embedding
+      │
+      ▼
+Retrieval Service
+      │
+      ▼
+Context Builder
+      │
+      ▼
+Gemini Generation
 ```
 
 Keep embeddings as a separate processing step.
@@ -602,6 +799,114 @@ Do not mix:
 - PDF extraction
 - chunking
 - embedding generation
+
+---
+
+# RAG Architecture Rules
+
+- RAG features must extend the existing BookSegment architecture.
+- do not create a separate document processing pipeline
+- retrieve only from authorized book segments
+- never bypass ownership checks
+- never answer beyond retrieved context
+- keep retrieval separate from generation
+- keep embeddings separate from chat generation
+
+Expected flow:
+
+```
+User Question
+|
+↓
+Generate Query Embedding
+|
+↓
+Vector Search
+|
+↓
+Retrieve BookSegments
+|
+↓
+Build Context
+|
+↓
+Gemini Generation
+|
+↓
+Answer + Citations
+```
+
+Rules:
+
+- Retrieval must always be scoped by authenticated user ownership.
+- A user must never retrieve another user's BookSegments.
+- Keep retrieval logic separate from generation logic.
+- Keep embedding generation separate from chat generation.
+- Do not mix vector search code into book upload services.
+- Do not place AI provider calls inside UI components.
+
+Preferred structure:
+
+```
+features/search/
+services/
+repositories/
+types/
+
+features/chat/
+actions/
+components/
+services/
+types/
+
+lib/ai/
+embeddings/
+generation/
+```
+
+---
+
+# AI Generation Rules
+
+Generation providers are responsible only for producing responses from supplied context.
+
+Rules:
+
+- Never perform retrieval inside generation providers.
+- Never generate embeddings inside generation providers.
+- Never query MongoDB directly.
+- Accept only prepared prompt/context from the chat service.
+- Stream responses when supported by the provider.
+- Providers should be replaceable without affecting retrieval logic.
+
+---
+
+# Streaming Rules
+
+Streaming transport belongs inside Route Handlers.
+
+Route Handlers:
+
+- receive requests
+- invoke services
+- stream responses
+
+Services should remain transport-agnostic and not depend on HTTP streaming APIs.
+
+---
+
+# Configuration Rules
+
+Do not hardcode values such as:
+
+- embedding dimensions
+- vector index names
+- topK
+- similarity thresholds
+- maximum retrieved segments
+- model names
+
+Store them in centralized configuration.
 
 ---
 
@@ -737,6 +1042,23 @@ npm run build
 
 ---
 
+# Package Manager Rules
+
+This project uses npm.
+
+Always use:
+
+npm install
+npm run <script>
+
+Do not use:
+
+pnpm
+yarn
+bun
+
+---
+
 # Naming Conventions
 
 Components:
@@ -781,6 +1103,21 @@ BookRecord
 
 ---
 
+# Documentation & Infrastructure Ownership
+
+Atlas Vector Search indexes are infrastructure.
+
+- Never create or modify indexes during application startup.
+- Index definitions and setup steps belong in deployment documentation, not application code.
+
+Deployment documentation belongs under:
+
+```
+docs/
+```
+
+---
+
 # When Adding New Features
 
 Before coding:
@@ -810,16 +1147,25 @@ Completed:
 ✓ Server actions
 ✓ PDF processing pipeline
 ✓ Gemini embeddings
+✓ Private Vercel Blob storage
+✓ Book details dashboard
+✓ Protected PDF viewer
+✓ Library improvements
+✓ MongoDB Atlas Vector Search
+✓ RAG retrieval pipeline
+✓ Gemini generation provider
+✓ Streaming chat responses
+✓ Book citations
+✓ Book-scoped AI chat
 
 Upcoming:
 
-- Vercel Blob production storage
-- Book details dashboard
-- PDF viewer
-- Vector search
-- RAG chat
-- Citations
-- AI personas
+- Conversation history
+- Multi-book search
+- AI summaries
+- Flashcards
+- Quiz generation
+- Mind maps
 - Voice conversations
 - Subscription limits
 - Analytics

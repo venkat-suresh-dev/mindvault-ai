@@ -49,6 +49,27 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
     }
   }
 
+  public async embedQuery(text: string): Promise<GeneratedEmbedding> {
+    try {
+      const response = await this.client.models.embedContent({
+        model: aiConfig.embeddings.model,
+        contents: text,
+        config: {
+          taskType: "RETRIEVAL_QUERY",
+          outputDimensionality: aiConfig.embeddings.dimensions,
+        },
+      });
+      const vector = response.embeddings?.[0]?.values;
+      if (!vector || vector.length !== aiConfig.embeddings.dimensions) {
+        throw new EmbeddingGenerationError("The embedding provider returned an invalid query vector.");
+      }
+      return { vector: normalizeVector(vector), model: aiConfig.embeddings.model, dimensions: aiConfig.embeddings.dimensions };
+    } catch (error) {
+      if (error instanceof EmbeddingGenerationError) throw error;
+      throw new EmbeddingGenerationError("Unable to generate a question embedding.", { cause: error });
+    }
+  }
+
   private async withTransientRetry<T>(operation: () => Promise<T>): Promise<T> {
     let lastError: unknown;
     for (let attempt = 1; attempt <= aiConfig.embeddings.maxRetries; attempt += 1) {

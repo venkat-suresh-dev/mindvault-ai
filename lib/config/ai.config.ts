@@ -22,4 +22,14 @@ export const aiConfig = {
     retryBaseDelayMs: 500,
     timeoutMs: 30_000,
   },
+  generation: {
+    model: "gemini-3.6-flash",
+  },
+  retrieval: {
+    vectorIndexName: "book_segments_vector_index",
+    topK: 6,
+    numCandidates: 100,
+    minimumScore: 0.55,
+    maxContextSegments: 6,
+  },
 } as const;
