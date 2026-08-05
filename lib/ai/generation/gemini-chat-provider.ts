@@ -13,4 +13,9 @@ export class GeminiChatProvider implements ChatProvider {
       if (chunk.text) yield chunk.text;
     }
   }
+
+  public async generate(input: ChatGenerationInput): Promise<string> {
+    const response = await this.client.models.generateContent({ model: aiConfig.generation.model, contents: input.prompt });
+    return response.text ?? "";
+  }
 }

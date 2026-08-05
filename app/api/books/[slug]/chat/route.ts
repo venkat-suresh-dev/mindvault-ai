@@ -1,10 +1,11 @@
 import { getBookBySlugForUser } from "@/features/books/services/book.service";
-import { ChatService } from "@/features/chat/services/chat.service";
+import { ConversationChatService } from "@/features/chat/services/conversation-chat.service";
 import type { ChatStreamEvent } from "@/features/chat/types/chat";
+import { conversationIdSchema } from "@/features/conversations/validation/conversation.validation";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 
-const requestSchema = z.object({ question: z.string().trim().min(1).max(2_000) });
+const requestSchema = z.object({ question: z.string().trim().min(1).max(2_000), conversationId: conversationIdSchema.optional() });
 
 export async function POST(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { userId } = await auth();
@@ -16,21 +17,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
     const { slug } = await params;
     const book = await getBookBySlugForUser(slug, userId);
     if (book.processingStatus !== "READY") return Response.json({ message: "This book is still being processed." }, { status: 409 });
-    const result = await new ChatService().answerBookQuestion(book._id.toString(), payload.data.question);
-    return new Response(createChatStream(result.answer, result.citations), { headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store" } });
+    const events = new ConversationChatService().answer({ bookId: book._id.toString(), clerkId: userId, ...payload.data });
+    return new Response(createChatStream(events), { headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store" } });
   } catch {
     return Response.json({ message: "Unable to answer this question right now." }, { status: 500 });
   }
 }
 
-function createChatStream(answer: AsyncIterable<string>, citations: ChatStreamEvent["citations"]): ReadableStream<Uint8Array> {
+function createChatStream(events: AsyncIterable<ChatStreamEvent>): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   return new ReadableStream({
     async start(controller) {
       try {
-        for await (const text of answer) controller.enqueue(encoder.encode(`${JSON.stringify({ type: "text", text } satisfies ChatStreamEvent)}\n`));
-        controller.enqueue(encoder.encode(`${JSON.stringify({ type: "citations", citations } satisfies ChatStreamEvent)}\n`));
-      } catch {
+        for await (const event of events) controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+      } catch (error) {
+        console.error("Chat NDJSON stream failed.", error);
         controller.enqueue(encoder.encode(`${JSON.stringify({ type: "error", text: "Unable to complete this answer." } satisfies ChatStreamEvent)}\n`));
       } finally { controller.close(); }
     },

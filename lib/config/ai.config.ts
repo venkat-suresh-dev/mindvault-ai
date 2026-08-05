@@ -27,9 +27,19 @@ export const aiConfig = {
   },
   retrieval: {
     vectorIndexName: "book_segments_vector_index",
-    topK: 6,
+    topK: 12,
     numCandidates: 100,
     minimumScore: 0.55,
     maxContextSegments: 6,
+    reranking: {
+      enabled: false,
+    },
+  },
+  conversations: {
+    recentMessageCount: 8,
+    summaryTriggerMessageCount: 12,
+    maxSummaryTokens: 1_000,
+    maxRecentMessageTokens: 1_600,
+    maxRetrievedContextTokens: 4_000,
   },
 } as const;

@@ -1,5 +1,6 @@
 import type { BookDetailsRecord } from "@/features/books/types/book";
-import { BookChat } from "@/features/chat/components/book-chat";
+import { ConversationWorkspace } from "@/features/conversations/components/conversation-workspace";
+import type { ConversationRecord } from "@/features/conversations/types/conversation";
 import {
   BookOpen,
   BrainCircuit,
@@ -30,7 +31,7 @@ const AI_FEATURES = [
   [BrainCircuit, "Semantic Search", "Search using your book's embeddings."],
 ] as const;
 
-export function BookDetailsPage({ book }: { book: BookDetailsRecord }) {
+export function BookDetailsPage({ book, initialConversations }: { book: BookDetailsRecord; initialConversations: ConversationRecord[] }) {
   const hasPdf = Boolean(
     book.fileBlobKey ||
     (book.fileUrl && !book.fileUrl.includes("storage.local")),
@@ -96,9 +97,11 @@ export function BookDetailsPage({ book }: { book: BookDetailsRecord }) {
         </aside>
 
         <div className="space-y-8">
-          <BookChat
+          <ConversationWorkspace
             slug={book.slug}
+            bookTitle={book.title}
             disabled={book.processingStatus !== "READY"}
+            initialConversations={initialConversations}
           />
           {hasPdf ? (
             <PdfViewerContainer

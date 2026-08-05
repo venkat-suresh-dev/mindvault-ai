@@ -4,4 +4,5 @@ export interface ChatGenerationInput {
 
 export interface ChatProvider {
   stream(input: ChatGenerationInput): AsyncIterable<string>;
+  generate(input: ChatGenerationInput): Promise<string>;
 }

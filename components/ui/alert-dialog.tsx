@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Dialog as AlertDialogPrimitive } from "radix-ui";
+import { AlertDialog as AlertDialogPrimitive } from "radix-ui";
 
 import { cn } from "@/lib/utils";
 
@@ -51,9 +51,14 @@ function AlertDialogDescription({ className, ...props }: React.ComponentProps<ty
   return <AlertDialogPrimitive.Description className={cn("text-muted-foreground text-sm leading-6", className)} {...props} />;
 }
 
+function AlertDialogCancel({ ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Cancel>) {
+  return <AlertDialogPrimitive.Cancel data-slot="alert-dialog-cancel" {...props} />;
+}
+
 export {
   AlertDialog,
   AlertDialogContent,
+  AlertDialogCancel,
   AlertDialogDescription,
   AlertDialogPortal,
   AlertDialogTitle,
