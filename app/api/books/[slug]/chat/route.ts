@@ -32,7 +32,7 @@ function createChatStream(events: AsyncIterable<ChatStreamEvent>): ReadableStrea
         for await (const event of events) controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
       } catch (error) {
         console.error("Chat NDJSON stream failed.", error);
-        controller.enqueue(encoder.encode(`${JSON.stringify({ type: "error", text: "Unable to complete this answer." } satisfies ChatStreamEvent)}\n`));
+        controller.enqueue(encoder.encode(`${JSON.stringify({ type: "error", text: "Generation temporarily unavailable. Please try again in a few moments." } satisfies ChatStreamEvent)}\n`));
       } finally { controller.close(); }
     },
   });

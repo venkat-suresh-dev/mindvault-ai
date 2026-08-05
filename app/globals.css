@@ -193,3 +193,19 @@
     );
   }
 }
+
+@keyframes knowledge-card-flip {
+  from {
+    opacity: 0;
+    transform: perspective(800px) rotateY(82deg);
+  }
+
+  to {
+    opacity: 1;
+    transform: perspective(800px) rotateY(0deg);
+  }
+}
+
+@utility knowledge-card-flip {
+  animation: knowledge-card-flip 220ms ease-out;
+}

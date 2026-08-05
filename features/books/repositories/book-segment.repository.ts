@@ -17,6 +17,13 @@ export interface PersistedBookSegment {
   text: string;
 }
 
+export interface OrderedBookSegment {
+  id: string;
+  segmentIndex: number;
+  pageNumber: number;
+  text: string;
+}
+
 export interface BookSegmentEmbeddingUpdate {
   segmentId: string;
   embedding: GeneratedEmbedding;
@@ -53,6 +60,20 @@ export async function findBookSegmentsWithoutEmbeddings(bookId: string): Promise
     .lean();
 
   return segments.map((segment) => ({ id: segment._id.toString(), text: segment.text }));
+}
+
+export async function findOrderedBookSegments(bookId: string): Promise<OrderedBookSegment[]> {
+  await connectToDatabase();
+  const segments = await BookSegmentModel.find({ bookId })
+    .select({ _id: 1, segmentIndex: 1, pageNumber: 1, text: 1 })
+    .sort({ segmentIndex: 1 })
+    .lean();
+  return segments.map((segment) => ({
+    id: segment._id.toString(),
+    segmentIndex: segment.segmentIndex,
+    pageNumber: segment.pageNumber,
+    text: segment.text,
+  }));
 }
 
 export async function bulkUpdateBookSegmentEmbeddings(updates: BookSegmentEmbeddingUpdate[]): Promise<void> {

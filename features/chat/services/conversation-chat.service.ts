@@ -33,7 +33,7 @@ export class ConversationChatService {
       }
     } catch (error) {
       console.error("Conversation answer stream failed.", error);
-      yield { type: "error", text: "Unable to complete this answer." };
+      yield { type: "error", text: "Generation temporarily unavailable. Please try again in a few moments." };
       return;
     }
 

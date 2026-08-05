@@ -26,7 +26,7 @@ export async function findConversationsForBook(bookId: string, clerkId: string, 
 
 export async function renameConversation({ conversationId, bookId, clerkId }: ConversationOwnership, title: string) {
   await connectToDatabase();
-  return ConversationModel.findOneAndUpdate({ _id: conversationId, bookId, clerkId }, { $set: { title } }, { new: true }).lean();
+  return ConversationModel.findOneAndUpdate({ _id: conversationId, bookId, clerkId }, { $set: { title } }, { returnDocument: "after" }).lean();
 }
 
 export async function deleteConversation({ conversationId, bookId, clerkId }: ConversationOwnership, session?: ClientSession) {
@@ -39,7 +39,7 @@ export async function reserveMessageSequence({ conversationId, bookId, clerkId }
   return ConversationModel.findOneAndUpdate(
     { _id: conversationId, bookId, clerkId },
     { $inc: { nextMessageSequence: 1 } },
-    { new: true, projection: { nextMessageSequence: 1 } },
+    { returnDocument: "after", projection: { nextMessageSequence: 1 } },
   ).lean();
 }
 

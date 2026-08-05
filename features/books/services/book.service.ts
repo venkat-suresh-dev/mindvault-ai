@@ -20,6 +20,7 @@ import { generateSlug } from "@/features/books/utils/generate-slug";
 import { normalizeBookTitle } from "@/features/books/utils/normalize-book-title";
 import type { BookSegmentInput, CreateBookInput } from "@/features/books/types/book";
 import { MongoServerError } from "mongodb";
+import { deleteKnowledgeArtifactsForBook } from "@/features/knowledge/repositories/knowledge-artifact.repository";
 
 const MAX_SLUG_ATTEMPTS = 100;
 
@@ -80,6 +81,7 @@ export async function deleteBookForUser(
   const storageKeys = [book.fileBlobKey, book.coverBlobKey].filter((key): key is string => Boolean(key));
   const deleted = await deleteBookAndSegmentsForUser(bookId, clerkId);
   if (!deleted) throw new BookNotFoundError();
+  await deleteKnowledgeArtifactsForBook(bookId, clerkId);
 
   const cleanup = await Promise.allSettled(storageKeys.map((key) => storage.delete(key)));
   if (cleanup.some((result) => result.status === "rejected")) throw new BookStorageCleanupPendingError();

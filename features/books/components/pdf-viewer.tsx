@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronRight as ChevronRightIcon,
   LoaderCircle,
   Maximize,
   Minimize,
@@ -32,6 +34,7 @@ export function PdfViewer({ url }: PdfViewerProps) {
   const [pageCount, setPageCount] = useState<number>();
   const [page, setPage] = useState(1);
   const [scale, setScale] = useState(1);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const onLoadSuccess = ({ numPages }: PDFDocumentProxy) => {
     setPageCount(numPages);
@@ -76,14 +79,13 @@ export function PdfViewer({ url }: PdfViewerProps) {
     >
       <div className="border-border flex flex-wrap items-center justify-between gap-3 border-b p-4">
         <div>
-          <h2 id="pdf-viewer-heading" className="font-semibold">
-            Read the PDF
-          </h2>
-          <p className="text-muted-foreground text-sm">
-            Your document is delivered through a protected connection.
-          </p>
+          <button type="button" onClick={() => setIsCollapsed((value) => !value)} aria-expanded={!isCollapsed} className="flex items-center gap-2 rounded-md font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {isCollapsed ? <ChevronRightIcon className="size-4" /> : <ChevronDown className="size-4" />}
+            <span id="pdf-viewer-heading">Read PDF</span>
+          </button>
+          {!isCollapsed ? <p className="text-muted-foreground mt-1 text-sm">Your document is delivered through a protected connection.</p> : null}
         </div>
-        <div className="flex items-center gap-1">
+        {!isCollapsed ? <div className="flex items-center gap-1">
           <Button
             variant="outline"
             size="icon-sm"
@@ -115,9 +117,9 @@ export function PdfViewer({ url }: PdfViewerProps) {
           >
             <Plus />
           </Button>
-        </div>
+        </div> : null}
       </div>
-      <div
+      {!isCollapsed ? <><div
         className={
           isFullscreen
             ? "bg-muted/40 min-h-0 flex-1 overflow-auto p-4"
@@ -177,7 +179,7 @@ export function PdfViewer({ url }: PdfViewerProps) {
             <ChevronRight />
           </Button>
         </div>
-      )}
+      )}</> : null}
     </section>
   );
 }
