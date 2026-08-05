@@ -100,7 +100,7 @@ Conversation memory supports continuity, but it does not replace retrieval. Ever
 | Database       | MongoDB Atlas, Mongoose                                                |
 | Storage        | Vercel Blob private storage                                            |
 | AI             | Gemini embeddings, Gemini generation, MongoDB Atlas Vector Search, RAG |
-| Document tools | unpdf, react-pdf                                                      |
+| Document tools | unpdf, react-pdf                                                       |
 
 ## Architecture
 
@@ -149,14 +149,14 @@ lib/
 
 ```mermaid
 flowchart TD
-  A["User asks a question"] --> B["Authenticate request"]
-  B --> C["Verify book ownership"]
-  C --> D["Load conversation context"]
-  D --> E["Retrieve relevant book content"]
-  E --> F["Build grounded AI prompt"]
-  F --> G["Gemini streaming response"]
-  G --> H["Answer + citations"]
-  G --> I["Persist conversation history"]
+  A["User asks<br/>a question"] --> B["Authenticate<br/>request"]
+  B --> C["Verify book<br/>ownership"]
+  C --> D["Load conversation<br/>context"]
+  D --> E["Retrieve relevant<br/>book content"]
+  E --> F["Build grounded<br/>AI prompt"]
+  F --> G["Gemini streaming<br/>response"]
+  G --> H["Answer<br/>+ citations"]
+  G --> I["Persist conversation<br/>history"]
 ```
 
 ### Security and Authorization Flow
@@ -165,7 +165,7 @@ flowchart TD
 flowchart TD
   A["User Request"] --> B["Clerk Authentication"]
   B --> C["Verify Book Ownership"]
-  C --> D["Verify Conversation Ownership"]
+  C --> D["Verify Conversation<br/>Ownership"]
   D --> E["Access Messages"]
   E --> F["MongoDB Repository Layer"]
 ```
@@ -179,8 +179,8 @@ flowchart TD
   A["Upload Book"] --> B["Private Vercel Blob Storage"]
   B --> C["PDF Processing"]
   C --> D["Text Chunking"]
-  D --> E["Generate Gemini Embeddings"]
-  E --> F["MongoDB Atlas Vector Search"]
+  D --> E["Generate Gemini<br/>Embeddings"]
+  E --> F["MongoDB Atlas<br/>Vector Search"]
 
   G["User Question"] --> H["Retrieve Relevant Segments"]
   F --> H
