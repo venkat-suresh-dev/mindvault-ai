@@ -14,6 +14,7 @@ import {
   Minimize,
   Minus,
   Plus,
+  RefreshCw,
 } from "lucide-react";
 import type { PDFDocumentProxy } from "pdfjs-dist/types/src/display/api";
 import { useEffect, useRef, useState } from "react";
@@ -35,6 +36,7 @@ export function PdfViewer({ url }: PdfViewerProps) {
   const [page, setPage] = useState(1);
   const [scale, setScale] = useState(1);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [documentKey, setDocumentKey] = useState(0);
 
   const onLoadSuccess = ({ numPages }: PDFDocumentProxy) => {
     setPageCount(numPages);
@@ -127,6 +129,7 @@ export function PdfViewer({ url }: PdfViewerProps) {
         }
       >
         <Document
+          key={documentKey}
           file={url}
           onLoadSuccess={onLoadSuccess}
           loading={
@@ -135,15 +138,7 @@ export function PdfViewer({ url }: PdfViewerProps) {
               Loading protected PDF…
             </div>
           }
-          error={
-            <div
-              role="alert"
-              className="text-destructive min-h-72 p-6 text-center text-sm"
-            >
-              This PDF could not be loaded. It may have been removed or is
-              unavailable.
-            </div>
-          }
+          error={<div role="alert" className="text-destructive flex min-h-72 flex-col items-center justify-center p-6 text-center text-sm"><p>This PDF could not be loaded. It may have been removed or is unavailable.</p><Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => setDocumentKey((value) => value + 1)}><RefreshCw />Try again</Button></div>}
         >
           <div className="mx-auto w-fit shadow-lg">
             <Page

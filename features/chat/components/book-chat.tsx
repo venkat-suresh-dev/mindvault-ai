@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, LoaderCircle, MessageSquareText, Sparkles } from "lucide-react";
+import { BookOpen, LoaderCircle, MessageSquareText, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ChatStreamEvent, Citation } from "@/features/chat/types/chat";
 import type { ConversationMessagePage, ConversationMessageRecord, ConversationRecord } from "@/features/conversations/types/conversation";
@@ -51,7 +51,7 @@ export function BookChat({ slug, bookTitle, conversation, disabled = false, conv
       if (!response.ok || !response.body) throw new Error("Unable to answer this question right now.");
       const reader = response.body.pipeThrough(new TextDecoderStream()).getReader(); let buffer = "";
       while (true) { const { done, value } = await reader.read(); if (done) break; buffer += value; const lines = buffer.split("\n"); buffer = lines.pop() ?? ""; for (const line of lines) { if (!line) continue; const event = parseChatEvent(line); if (!event) continue; if (event.type === "conversation" && event.conversation) { skipLoadConversationId.current = event.conversation.id; onConversationKnown(event.conversation); } applyEvent(event, assistantId, setMessages); if (event.type === "citations") onConversationPersisted(); if (event.type === "persistence-error") setError(event.text ?? "This response was not saved. You can continue chatting, but it may be missing when you return."); } }
-    } catch (requestError) { const message = requestError instanceof Error ? requestError.message : "Unable to answer this question right now."; setMessages((current) => current.map((item) => item.id === assistantId ? { ...item, content: message } : item)); }
+    } catch (requestError) { const message = requestError instanceof Error ? requestError.message : "Unable to answer this question right now."; setError(message); setMessages((current) => current.filter((item) => item.id !== assistantId)); }
     finally { setIsStreaming(false); onStreamingChange(false); }
   };
 
@@ -61,7 +61,7 @@ export function BookChat({ slug, bookTitle, conversation, disabled = false, conv
       {nextBeforeSequence ? <div className="text-center"><Button type="button" variant="ghost" size="sm" disabled={isLoadingEarlier} onClick={() => void loadEarlierMessages()}>{isLoadingEarlier ? <LoaderCircle className="animate-spin" /> : null}{isLoadingEarlier ? "Loading earlier messages..." : "Load earlier messages"}</Button></div> : null}
       {isLoadingConversation ? <MessageSkeleton /> : messages.length > 0 ? messages.map((message, index) => <ChatMessage key={message.id} {...message} isStreaming={isStreaming && index === messages.length - 1 && message.role === "assistant"} />) : <EmptyChatState hasConversation={Boolean(conversationId)} />}
     </div>
-    {error ? <p className="text-destructive mx-5 mb-3 text-sm" role="alert">{error}</p> : null}
+    {error ? <div className="border-destructive/20 bg-destructive/5 mx-5 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm" role="alert"><span className="text-destructive">{error}</span>{!isStreaming ? <Button type="button" variant="ghost" size="sm" onClick={() => setError(undefined)}><RefreshCw />Dismiss</Button> : null}</div> : null}
     <div className="border-border border-t p-4"><ChatInput disabled={disabled || isStreaming || isLoadingConversation} onSubmit={ask} />{disabled ? <p className="text-muted-foreground mt-2 text-xs">Chat is available once processing and embeddings are complete.</p> : <p className="text-muted-foreground mt-2 text-xs">Answers are grounded only in this book’s retrieved passages.</p>}</div>
   </section>;
 }
