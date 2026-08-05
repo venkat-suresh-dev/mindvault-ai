@@ -42,7 +42,7 @@ export function BookDetailsPage({ book, initialConversations }: { book: BookDeta
       <div className="grid gap-6 xl:grid-cols-[272px_minmax(0,1fr)] xl:items-start">
         <aside className="border-border bg-card h-fit overflow-hidden rounded-2xl border shadow-sm xl:sticky xl:top-6">
           <div className="bg-muted relative aspect-3/4">
-            <BookCover src={coverUrl} title={book.title} />
+            <BookCover src={coverUrl} title={book.title} author={book.author} />
           </div>
           <div className="space-y-5 p-5">
             <div>

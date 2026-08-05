@@ -9,9 +9,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { deleteBook } from "@/features/books/actions/delete-book";
+import { BookCover } from "@/features/books/components/book-cover";
 import { VOICE_PERSONAS } from "@/features/books/constants/voice-personas";
 import type { LibraryBook } from "@/features/home/types/home";
-import { BookOpen, LoaderCircle, Trash2 } from "lucide-react";
+import { LoaderCircle, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -43,7 +44,6 @@ export function BookCard({ book }: BookCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isRemoved, setIsRemoved] = useState(false);
   const [error, setError] = useState<string>();
-  const [hasCover, setHasCover] = useState(Boolean(book.coverBlobKey || (book.coverUrl && !book.coverUrl.includes("storage.local"))));
   const [isDeleting, startTransition] = useTransition();
   const canDelete = book.processingStatus === "READY" || book.processingStatus === "FAILED";
   const coverSource = book.coverBlobKey
@@ -76,21 +76,12 @@ export function BookCard({ book }: BookCardProps) {
       <Link href={`/books/${book.slug}`} className="block focus-visible:outline-none" aria-label={`Open ${book.title} by ${book.author}`}>
         <figure>
           <div className="bg-muted relative aspect-3/4 overflow-hidden">
-            {hasCover && coverSource ? (
-              // The protected route requires browser authentication; Next Image optimization cannot forward Clerk cookies.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={coverSource}
-                alt={`Cover of ${book.title}`}
-                className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                onError={() => setHasCover(false)}
-              />
-            ) : (
-              <div className="from-primary/20 via-muted to-background flex size-full flex-col items-center justify-center bg-gradient-to-br p-4 text-center">
-                <BookOpen className="text-primary size-9" aria-hidden="true" />
-                <span className="mt-3 line-clamp-3 text-sm font-semibold">{book.title}</span>
-              </div>
-            )}
+            <BookCover
+              src={coverSource}
+              title={book.title}
+              author={book.author}
+              imageClassName="transition-transform duration-300 group-hover:scale-[1.03]"
+            />
           </div>
 
           <figcaption className="p-3">
