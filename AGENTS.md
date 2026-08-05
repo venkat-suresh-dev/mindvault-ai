@@ -61,6 +61,16 @@ Implemented:
 - Book-scoped conversation lifecycle
 - Conversation-aware RAG chat
 - Conversation citations persistence
+- Knowledge Intelligence
+- AI summaries
+- Key takeaways
+- Flashcards
+- Quiz generation
+- Mind maps
+- Knowledge generation orchestration
+- Background-friendly artifact generation
+- Generation status tracking
+- Artifact regeneration
 
 Planned:
 
@@ -116,6 +126,17 @@ features/
 │   ├── types/
 │   └── index.ts
 │
+├── knowledge/
+│   ├── actions/
+│   ├── components/
+│   ├── constants/
+│   ├── models/
+│   ├── repositories/
+│   ├── services/
+│   ├── types/
+│   ├── validation/
+│   └── index.ts
+│
 ├── search/
 │   ├── repositories/
 │   ├── services/
@@ -127,7 +148,6 @@ features/
 ```
 
 ```
-Current high-level repository structure:
 Current high-level repository structure:
 
 mindvault-ai
@@ -191,6 +211,20 @@ mindvault-ai
 │   │
 │   ├── home/                 # Landing/library experience domain.
 │   │
+│   ├── knowledge/            # Knowledge Intelligence domain.
+│   │                         # Owns AI summaries, takeaways, flashcards,
+│   │                         # quizzes, mind maps, and generation orchestration.
+│   │
+│   │   ├── actions/          # Server actions for knowledge generation/regeneration.
+│   │   ├── components/       # Knowledge workspace and artifact UI.
+│   │   ├── constants/        # Knowledge domain constants (config, limits).
+│   │   ├── models/           # Knowledge artifact models.
+│   │   ├── repositories/     # Knowledge artifact database access.
+│   │   ├── services/         # Artifact generation services and orchestrator.
+│   │   ├── types/            # Knowledge domain types.
+│   │   ├── validation/       # Knowledge input validation.
+│   │   └── index.ts          # Public feature exports.
+│   │
 │   ├── search/               # Retrieval and search domain.
 │   │                         # Owns vector search, retrieval,
 │   │                         # and reranking logic.
@@ -227,6 +261,7 @@ Examples:
 - Book/document functionality belongs in features/books/
 - Chat experience functionality belongs in features/chat/
 - Conversation persistence belongs in features/conversations/
+- Knowledge Intelligence (summaries, takeaways, flashcards, quizzes, mind maps) belongs in features/knowledge/
 - Retrieval and vector search belong in features/search/
 - AI provider integrations belong in lib/ai/
 - Shared infrastructure belongs in lib/
@@ -281,6 +316,29 @@ Owns:
 
 The conversation feature is the persistence layer for chat history.
 Do not move persistence logic into chat components or chat services.
+
+### knowledge/
+
+Owns:
+
+- AI summaries
+- Key takeaways
+- Flashcards
+- Quiz generation
+- Mind maps
+- Artifact persistence
+- Artifact lifecycle
+- Generation orchestration
+- Generation progress
+- Artifact regeneration
+
+Knowledge does NOT own:
+
+- PDF processing
+- Retrieval
+- Embeddings
+- Chat
+- Conversations
 
 ---
 
@@ -372,6 +430,30 @@ Avoid:
 - duplicated code
 - tightly coupled features
 - premature abstractions
+
+---
+
+# Agent Expectations
+
+Before implementing a feature:
+
+- inspect the existing implementation
+- reuse existing abstractions
+- avoid duplicate components
+- prefer extending current patterns over introducing new ones
+
+When improving existing features:
+
+- preserve backward compatibility where practical
+- avoid regressions
+- keep changes scoped to the feature
+- do not rewrite working code without architectural benefit
+
+When making UI improvements:
+
+- prioritize usability over visual novelty
+- prefer incremental refinements
+- avoid unnecessary dependencies
 
 ---
 
@@ -705,7 +787,8 @@ These guarantees support:
 - MongoDB Atlas Vector Search
 - citations
 - semantic retrieval
-- future AI features (summaries, flashcards, quizzes, multi-book search)
+- Knowledge Intelligence artifacts (summaries, flashcards, quizzes, mind maps)
+- future AI features (multi-book search, spaced repetition, learning plans)
 
 ---
 
@@ -750,6 +833,27 @@ Context Builder
 Gemini Generation
 ```
 
+Knowledge Intelligence extends this same foundation rather than branching from it:
+
+```
+Book
+      │
+      ▼
+BookSegments
+      │
+      ▼
+Context Builder
+      │
+      ▼
+Knowledge Generation
+      │
+      ├── Summary
+      ├── Takeaways
+      ├── Flashcards
+      ├── Quiz
+      └── Mind Map
+```
+
 Keep embeddings as a separate processing step.
 
 Do not mix:
@@ -757,6 +861,28 @@ Do not mix:
 - PDF extraction
 - chunking
 - embedding generation
+- knowledge artifact generation
+
+---
+
+# AI Architecture Principle
+
+MindVault AI is composed of independent AI workflows.
+
+Examples:
+
+- Chat
+- Summary Generation
+- Flashcard Generation
+- Quiz Generation
+- Mind Map Generation
+
+Each workflow should:
+
+- own its orchestration
+- reuse shared retrieval infrastructure
+- remain independently testable
+- avoid tight coupling to other workflows
 
 ---
 
@@ -817,10 +943,67 @@ components/
 services/
 types/
 
+features/knowledge/
+actions/
+components/
+services/
+repositories/
+types/
+
 lib/ai/
 embeddings/
 generation/
 ```
+
+---
+
+# Knowledge Intelligence Rules
+
+Knowledge generation extends the existing RAG architecture. It is a consumer of BookSegments, not a parallel pipeline.
+
+Rules:
+
+- Never parse PDFs again.
+- Never regenerate embeddings.
+- Never bypass BookSegments.
+- Never duplicate retrieval logic.
+- Never call Gemini directly from UI.
+- Preserve citations.
+- Preserve page references.
+- Preserve BookSegment provenance.
+
+Whole-book artifacts (summaries, takeaways, mind maps, whole-book quizzes/flashcards) should use deterministic BookSegment batching rather than query-based retrieval, since the goal is coverage of the book, not similarity to a query.
+
+Artifact services (`summary.service.ts`, `takeaway.service.ts`, `flashcard.service.ts`, `quiz.service.ts`, `mindmap.service.ts`) are responsible only for their own generation logic.
+
+Generation orchestration belongs exclusively in the Generation Orchestrator (`generation-orchestrator.service.ts`). Individual artifact services must not invoke one another directly.
+
+All artifacts must support the following lifecycle states:
+
+- Requested
+- Generating
+- Completed
+- Failed
+
+Regeneration must reuse existing artifacts whenever possible (idempotent generation) rather than always generating from scratch.
+
+Knowledge generation should be asynchronous-friendly and progress-aware: long-running generation must not block the request/response cycle, and generation status must be queryable.
+
+Knowledge artifact repositories must always filter by authenticated user and book ownership, matching the same ownership rules as BookSegments and conversations.
+
+## Knowledge Artifact Standards
+
+Knowledge artifacts should be:
+
+- deterministic where possible
+- resumable
+- idempotent
+- retryable
+- progress-aware
+- cancellable (future)
+- independently regeneratable
+
+These standards apply to every current artifact type (summaries, takeaways, flashcards, quizzes, mind maps) and should guide future artifact types (spaced repetition, learning plans).
 
 ---
 
@@ -922,9 +1105,18 @@ Rules:
 - Never perform retrieval inside generation providers.
 - Never generate embeddings inside generation providers.
 - Never query MongoDB directly.
-- Accept only prepared prompt/context from the chat service.
+- Accept only prepared prompt/context from the calling service (chat service or knowledge artifact service).
 - Stream responses when supported by the provider.
 - Providers should be replaceable without affecting retrieval logic.
+
+Generation providers remain provider-only. They do not:
+
+- perform retrieval
+- perform BookSegment batching
+- manage artifact lifecycle
+- persist artifacts or conversation messages
+
+Knowledge generation orchestration belongs exclusively in `features/knowledge/`. Generation providers simply receive prepared prompts and return AI output; they have no awareness of chat, conversations, or knowledge artifacts as concepts.
 
 Future AI persona support:
 
@@ -969,6 +1161,12 @@ Do not hardcode values such as:
 - similarity thresholds
 - maximum retrieved segments
 - model names
+- generation batch size
+- artifact limits
+- flashcard count
+- quiz count
+- timeout values
+- retry counts
 
 Store them in centralized configuration.
 
@@ -1001,6 +1199,53 @@ text-muted-foreground
 
 border-border
 ```
+
+---
+
+# Product Design Principles
+
+MindVault AI is a productivity application, not a technical demo.
+
+Every new UI should prioritize:
+
+- clear visual hierarchy
+- minimal cognitive load
+- progressive disclosure
+- consistency across workspaces
+- responsive layouts
+- polished loading, empty and error states
+
+Primary workspace priority:
+
+1. AI Chat
+2. Knowledge Workspace
+3. PDF Viewer
+4. Metadata
+
+Design guidelines:
+
+- Prefer meaningful whitespace over dense layouts.
+- Use icons to improve scanability.
+- Status should always be visually distinguishable (badge/icon/color).
+- Long-running AI operations must communicate progress.
+- Every interactive element should have hover, focus and disabled states.
+- Avoid making all cards visually identical; establish hierarchy using spacing, sizing and subtle surface variations.
+
+---
+
+# Feature Quality Standards
+
+Every user-facing feature should include:
+
+✓ loading state
+✓ empty state
+✓ success state
+✓ error state
+✓ retry mechanism (when applicable)
+✓ optimistic updates where appropriate
+✓ responsive layout
+✓ keyboard accessibility
+✓ dark mode
 
 ---
 
@@ -1131,6 +1376,19 @@ For conversation features verify:
 - Citations still render.
 - Summary memory does not replace retrieval.
 
+For knowledge features verify:
+
+- generation
+- progress updates
+- regeneration
+- citations
+- ownership
+- stale timeout recovery
+- retry behavior
+- model fallback
+- loading states
+- empty states
+
 ---
 
 # Package Manager Rules
@@ -1238,6 +1496,50 @@ Before coding:
 
 # Current Product Roadmap
 
+## Current
+
+✓ Chat
+✓ Knowledge Workspace
+✓ PDF Viewer
+✓ Conversations
+
+## Next
+
+- Multi-book Chat
+- Spaced Repetition
+- Learning Plans
+- Personas
+
+## Future
+
+- Voice AI
+- Mobile
+- Team Workspaces
+- Shared Libraries
+- Analytics
+- Subscription limits
+
+## Detailed Capability History
+
+Current AI capabilities:
+
+✓ Secure document ingestion
+✓ PDF processing
+✓ Chunk generation
+✓ Embeddings
+✓ MongoDB Atlas Vector Search
+✓ RAG retrieval
+✓ Streaming AI chat
+✓ Persistent conversations
+✓ Conversation memory
+✓ Grounded citations
+✓ Knowledge Intelligence
+✓ AI summaries
+✓ Takeaways
+✓ Flashcards
+✓ Quiz generation
+✓ Mind maps
+
 Completed:
 
 ✓ Next.js foundation
@@ -1268,18 +1570,12 @@ Completed:
 ✓ Multi-turn conversational memory
 ✓ Conversation summaries
 ✓ Conversation lifecycle management
-
-Upcoming:
-
-- Multi-book search
-- AI book/document summaries
-- Flashcards
-- Quiz generation
-- Mind maps
-- AI personas / customizable assistant behavior
-- Voice conversations
-- Subscription limits
-- Analytics
+✓ Knowledge Intelligence
+✓ AI summaries
+✓ Key takeaways
+✓ Flashcards
+✓ Quiz generation
+✓ Mind maps
 
 ---
 
