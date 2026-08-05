@@ -16,7 +16,7 @@
 
 **A private, AI-powered knowledge workspace for the books and documents that matter to you.**
 
-MindVault AI turns uploaded PDFs into a searchable personal library. Users can upload books privately, open a protected book details dashboard, chat with grounded AI responses, and keep persistent conversation history tied to each book.
+MindVault AI turns uploaded PDFs into a searchable personal library. Users can upload books privately, open a protected book details dashboard, interact with their content through grounded AI chat, and create AI-generated learning materials from the same document foundation.
 
 ## Features
 
@@ -31,6 +31,10 @@ MindVault AI turns uploaded PDFs into a searchable personal library. Users can u
 - Streaming AI responses with citations
 - Persistent, book-scoped conversations
 - Conversation sidebar with create, select, rename, and delete actions
+- Conversation summaries and bounded multi-turn memory
+- Knowledge workspace with AI summaries and key takeaways
+- Grounded flashcards, quizzes, and mind maps
+- Generation progress, failure recovery, and artifact regeneration
 - Protected in-app PDF viewing
 - Book details dashboard
 - Light, dark, and system theme support
@@ -39,10 +43,10 @@ MindVault AI turns uploaded PDFs into a searchable personal library. Users can u
 
 ```text
 Upload document
-  -> Private storage
+  -> Private Vercel Blob storage
   -> PDF processing
   -> Text chunking
-  -> Embedding preparation
+  -> Gemini embedding generation
   -> MongoDB Atlas Vector Search
   -> Relevant context retrieval
   -> Gemini generation
@@ -96,6 +100,7 @@ Conversation memory supports continuity, but it does not replace retrieval. Ever
 | Database       | MongoDB Atlas, Mongoose                                                |
 | Storage        | Vercel Blob private storage                                            |
 | AI             | Gemini embeddings, Gemini generation, MongoDB Atlas Vector Search, RAG |
+| Document tools | unpdf, react-pdf                                                      |
 
 ## Architecture
 
@@ -122,6 +127,11 @@ features/
     Message history
     Summaries
     Conversation lifecycle
+
+  knowledge/
+    Summaries and learning artifacts
+    Generation orchestration
+    Artifact lifecycle and progress
 
   search/
     Retrieval
@@ -166,18 +176,35 @@ This ownership model keeps private data isolated. Authentication happens first, 
 
 ```mermaid
 flowchart TD
-  A["Upload Book"] --> B["PDF Processing"]
-  B --> C["Text Chunking"]
-  C --> D["Generate Embeddings"]
-  D --> E["MongoDB Atlas Vector Search"]
+  A["Upload Book"] --> B["Private Vercel Blob Storage"]
+  B --> C["PDF Processing"]
+  C --> D["Text Chunking"]
+  D --> E["Generate Gemini Embeddings"]
+  E --> F["MongoDB Atlas Vector Search"]
 
-  F["User Question"] --> G["Retrieve Relevant Segments"]
-  G --> H["Context Assembly"]
-  H --> I["Gemini Response"]
-  I --> J["Answer + Citations"]
+  G["User Question"] --> H["Retrieve Relevant Segments"]
+  F --> H
+  H --> I["Context Assembly"]
+  I --> J["Gemini Streaming Response"]
+  J --> K["Answer + Citations"]
 ```
 
 The knowledge pipeline is book-scoped and uses the existing BookSegment embeddings. AI providers receive prepared context and do not query the database directly.
+
+## Knowledge Intelligence
+
+Knowledge Intelligence builds on the existing BookSegment foundation; it does not reprocess PDFs or regenerate embeddings. For whole-book coverage, it works through ordered segment batches and creates learning materials grounded in the uploaded content.
+
+Implemented capabilities:
+
+- AI summaries
+- Key takeaways
+- Flashcards
+- Quiz generation with explanations
+- Mind maps
+- Artifact citations and source-segment provenance
+- Requested, generating, completed, and failed generation states
+- Generation progress tracking, retry support, stale-generation recovery, and regeneration
 
 ## RAG Architecture
 
@@ -225,6 +252,8 @@ Existing screenshots:
 
 Documents are private and owned by individual users. Clerk authentication and server-side ownership checks are enforced before protected files, books, conversations, or vector-search results are returned. Vercel Blob credentials remain server-side, and blob keys are stored in MongoDB rather than treated as public access URLs.
 
+Books, conversations, messages, knowledge artifacts, and retrieval results are all scoped to the authenticated owner and selected book. Client-side controls support the experience, but protected operations are authorized on the server.
+
 ## Development Setup
 
 ### Prerequisites
@@ -250,10 +279,7 @@ Create a `.env.local` file and configure the required values:
 MONGODB_URI=
 
 # Clerk authentication
-# Public key used by the frontend
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
-
-# Secret key used for server-side authentication
 CLERK_SECRET_KEY=
 
 # Google Gemini API key for embeddings and AI generation
@@ -274,9 +300,16 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+### Production Checks
+
+```bash
+npm run lint
+npm run build
+```
+
 ## Roadmap
 
-### Completed
+### Current
 
 - Authentication
 - Book uploads
@@ -292,17 +325,27 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - Book details dashboard
 - Library experience
 - Persistent conversation history
+- Conversation summaries and multi-turn memory
+- Knowledge Intelligence
+- AI summaries and key takeaways
+- Flashcards, quizzes, and mind maps
+- Artifact generation tracking and regeneration
 
-### Planned
+### Next
 
-- Multi-book search
-- AI personas / customizable assistant behavior
-- Flashcards
-- Quiz generation
-- Mind maps
-- Voice conversations
-- Subscription limits
+- Multi-book chat
+- AI Personas
+- Voice Conversations
+- Learning Plans
+- Spaced Repetition
+
+### Future
+
+- Mobile
+- Team Workspaces
+- Shared Libraries
 - Analytics
+- Subscription Plans
 
 ## Engineering Principles
 
