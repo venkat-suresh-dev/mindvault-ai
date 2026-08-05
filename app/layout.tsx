@@ -1,4 +1,5 @@
 import { Navbar } from "@/components/layout/navbar";
+import { clerkAppearance } from "@/components/providers/clerk-appearance";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
@@ -48,7 +49,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="bg-background text-foreground flex min-h-screen flex-col font-sans">
-        <ClerkProvider afterSignOutUrl="/">
+        <ClerkProvider afterSignOutUrl="/" appearance={clerkAppearance}>
           <ThemeProvider>
             <Navbar />
             <main className="flex-1">{children}</main>
