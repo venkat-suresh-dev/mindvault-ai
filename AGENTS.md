@@ -54,12 +54,18 @@ Implemented:
 - Streaming AI responses
 - Citation system
 - Book-scoped AI chat
+- Conversation history
+- Persistent conversations
+- Multi-turn conversation memory
+- Conversation summaries
+- Book-scoped conversation lifecycle
+- Conversation-aware RAG chat
+- Conversation citations persistence
 
 Planned:
 
-- Conversation history
 - Multi-book search
-- AI personas
+- AI personas / customizable AI assistants
 - Voice conversations
 
 ---
@@ -95,6 +101,15 @@ features/
 │   ├── services/
 │   └── types/
 │
+├── conversations/
+│   ├── components/
+│   ├── errors/
+│   ├── models/
+│   ├── repositories/
+│   ├── services/
+│   ├── types/
+│   └── validation/
+│
 ├── home/
 │   ├── components/
 │   ├── constants/
@@ -104,226 +119,169 @@ features/
 ├── search/
 │   ├── repositories/
 │   ├── services/
+│   │   └── reranking/
 │   └── types/
 │
 └── voice/
     └── models/
-
 ```
 
 ```
-Current Repo Structure:
+Current high-level repository structure:
+Current high-level repository structure:
+
 mindvault-ai
-├── AGENTS.md
-├── CLAUDE.md
-├── README.md
-├── app
-│   ├── api
-│   │   └── books
-│   │       └── [slug]
-│   │           ├── chat
-│   │           │   └── route.ts
-│   │           ├── cover
-│   │           │   └── route.ts
-│   │           └── file
-│   │               └── route.ts
-│   ├── books
-│   │   ├── [slug]
-│   │   │   ├── error.tsx
-│   │   │   ├── loading.tsx
-│   │   │   └── page.tsx
-│   │   └── new
-│   │       └── page.tsx
-│   ├── favicon.ico
-│   ├── globals.css
-│   ├── layout.tsx
-│   └── page.tsx
-├── components
-│   ├── layout
-│   │   └── navbar
-│   │       ├── auth-section.tsx
-│   │       ├── desktop-nav.tsx
-│   │       ├── guest-actions.tsx
-│   │       ├── index.ts
-│   │       ├── logo.tsx
-│   │       ├── mobile-nav.tsx
-│   │       ├── nav-link.tsx
-│   │       ├── navbar.tsx
-│   │       └── user-profile.tsx
-│   ├── providers
-│   │   └── theme-provider.tsx
-│   ├── theme-toggle.tsx
-│   └── ui
-│       ├── alert-dialog.tsx
-│       ├── button.tsx
-│       ├── form.tsx
-│       ├── input.tsx
-│       ├── select.tsx
-│       └── sheet.tsx
-├── components.json
-├── config
-│   └── navigation.ts
-├── docs
-│   └── atlas-vector-search.md
-├── eslint.config.mjs
-├── features
-│   ├── books
-│   │   ├── actions
-│   │   │   ├── book-action-helpers.ts
-│   │   │   ├── create-book.ts
-│   │   │   ├── delete-book.ts
-│   │   │   ├── find-book-by-slug.ts
-│   │   │   ├── get-book.ts
-│   │   │   └── save-book-segments.ts
-│   │   ├── components
-│   │   │   ├── book-cover.tsx
-│   │   │   ├── book-delete-button.tsx
-│   │   │   ├── book-details-page.tsx
-│   │   │   ├── book-form-fields.tsx
-│   │   │   ├── book-upload-form.tsx
-│   │   │   ├── cover-upload-field.tsx
-│   │   │   ├── new-book-page.tsx
-│   │   │   ├── pdf-upload-field.tsx
-│   │   │   ├── pdf-viewer-container.tsx
-│   │   │   ├── pdf-viewer.tsx
-│   │   │   ├── upload-loading-overlay.tsx
-│   │   │   ├── upload-success-state.tsx
-│   │   │   └── voice-selector.tsx
-│   │   ├── constants
-│   │   │   ├── book-upload.ts
-│   │   │   └── voice-personas.ts
-│   │   ├── errors
-│   │   │   └── book-errors.ts
-│   │   ├── index.ts
-│   │   ├── models
-│   │   │   ├── book-segment.model.ts
-│   │   │   └── book.model.ts
-│   │   ├── repositories
-│   │   │   ├── book-segment.repository.ts
-│   │   │   └── book.repository.ts
-│   │   ├── schemas
-│   │   │   └── book-schema.ts
-│   │   ├── services
-│   │   │   ├── book-processing.service.ts
-│   │   │   ├── book.service.ts
-│   │   │   ├── chunk.service.ts
-│   │   │   ├── embedding.service.ts
-│   │   │   ├── pdf.service.ts
-│   │   │   └── storage
-│   │   │       ├── blob-access.service.ts
-│   │   │       ├── index.ts
-│   │   │       ├── storage-provider.ts
-│   │   │       └── vercel-blob-storage.ts
-│   │   ├── types
-│   │   │   ├── book-processing.ts
-│   │   │   └── book.ts
-│   │   ├── utils
-│   │   │   ├── generate-slug.ts
-│   │   │   └── normalize-book-title.ts
-│   │   └── validation
-│   │       └── book.validation.ts
-│   ├── chat
-│   │   ├── components
-│   │   │   ├── book-chat.tsx
-│   │   │   ├── chat-input.tsx
-│   │   │   ├── chat-message.tsx
-│   │   │   ├── citation-list.tsx
-│   │   │   └── markdown-response.tsx
-│   │   ├── services
-│   │   │   ├── chat.service.ts
-│   │   │   └── context-builder.service.ts
-│   │   └── types
-│   │       └── chat.ts
-│   ├── home
-│   │   ├── components
-│   │   │   ├── book-card.tsx
-│   │   │   ├── book-grid.tsx
-│   │   │   ├── empty-library.tsx
-│   │   │   ├── hero-illustration.tsx
-│   │   │   ├── hero-section.tsx
-│   │   │   ├── home-page.tsx
-│   │   │   ├── how-it-works-card.tsx
-│   │   │   └── library-section.tsx
-│   │   ├── constants
-│   │   │   └── home-content.ts
-│   │   ├── index.ts
-│   │   └── types
-│   │       └── home.ts
-│   ├── search
-│   │   ├── repositories
-│   │   │   └── vector-search.repository.ts
-│   │   ├── services
-│   │   │   ├── embedding-search.service.ts
-│   │   │   └── retrieval.service.ts
-│   │   └── types
-│   │       └── search.ts
-│   └── voice
-│       └── models
-│           └── voice-session.model.ts
-├── lib
-│   ├── ai
-│   │   ├── embeddings
-│   │   │   ├── embedding-errors.ts
-│   │   │   ├── embedding-provider.ts
-│   │   │   ├── gemini
-│   │   │   │   └── gemini-embedding-provider.ts
-│   │   │   ├── index.ts
-│   │   │   └── types.ts
-│   │   └── generation
-│   │       ├── chat-provider.ts
-│   │       ├── gemini-chat-provider.ts
-│   │       ├── index.ts
-│   │       └── types.ts
-│   ├── config
-│   │   └── ai.config.ts
-│   ├── db
-│   │   ├── action-result.ts
-│   │   ├── connection.ts
-│   │   ├── errors.ts
-│   │   └── serialize.ts
-│   └── utils.ts
-├── next.config.ts
-├── package-lock.json
-├── package.json
-├── postcss.config.mjs
-├── proxy.ts
-├── public
-│   ├── file.svg
-│   ├── globe.svg
-│   ├── images
-│   │   └── mindvault-library-hero.png
-│   ├── vercel.svg
-│   └── window.svg
-├── screenshots
-│   ├── Add New.jpeg
-│   ├── Book Details.jpeg
-│   ├── Dark Mode.jpeg
-│   └── Home.jpeg
-└── tsconfig.json
+├── app/
+│   ├── api/                  # Next.js route handlers. Thin transport layer only.
+│   │                         # Auth, validation, ownership checks, service delegation.
+│   └── books/                # Route composition for book-related pages.
+│                             # Pages should compose feature components only.
+│
+├── components/               # Shared application UI only.
+│   ├── layout/               # Global layout components (navbar, navigation).
+│   ├── providers/            # Application providers (theme, context providers).
+│   └── ui/                   # Reusable design system components (shadcn/ui).
+│
+├── config/                   # Application-level configuration.
+│
+├── docs/                     # Developer documentation and infrastructure notes.
+│                             # Example: database indexes, deployment notes.
+│
+├── features/                 # Main business domain boundary.
+│                             # Each feature owns its UI, logic, types, and persistence.
+│
+│   ├── books/                # Book/document lifecycle domain.
+│   │                         # Owns uploads, PDF processing, storage,
+│   │                         # Book metadata, BookSegments, and document access.
+│   │
+│   │   ├── actions/          # Server actions for book operations.
+│   │   ├── components/       # Book-specific UI components.
+│   │   ├── constants/        # Book domain constants.
+│   │   ├── errors/           # Book-specific domain errors.
+│   │   ├── models/           # MongoDB/Mongoose book models.
+│   │   ├── repositories/     # Database access for books and segments.
+│   │   ├── schemas/          # Validation schemas.
+│   │   ├── services/         # Business logic and workflows.
+│   │   │   └── storage/      # Storage abstraction and Vercel Blob integration.
+│   │   ├── types/            # Book domain types.
+│   │   ├── utils/            # Book-specific utilities.
+│   │   ├── validation/       # Input validation rules.
+│   │   └── index.ts          # Public feature exports.
+│   │
+│   ├── chat/                 # AI chat experience domain.
+│   │                         # Owns streaming UI, message rendering,
+│   │                         # citations, and chat orchestration.
+│   │                         # Does NOT own conversation persistence.
+│   │
+│   │   ├── components/       # Chat UI components.
+│   │   ├── services/         # Chat workflows and context coordination.
+│   │   └── types/            # Chat-related types.
+│   │
+│   ├── conversations/        # Conversation persistence domain.
+│   │                         # Owns conversations, messages, summaries,
+│   │                         # history, and conversation lifecycle.
+│   │
+│   │   ├── components/       # Conversation UI (sidebar, workspace).
+│   │   ├── errors/           # Conversation-specific errors.
+│   │   ├── models/            # Conversation and message models.
+│   │   ├── repositories/     # Conversation database access.
+│   │   ├── services/         # Conversation business logic.
+│   │   ├── types/             # Conversation domain types.
+│   │   └── validation/       # Conversation validation.
+│   │
+│   ├── home/                 # Landing/library experience domain.
+│   │
+│   ├── search/               # Retrieval and search domain.
+│   │                         # Owns vector search, retrieval,
+│   │                         # and reranking logic.
+│   │
+│   │   ├── repositories/     # Search data access.
+│   │   ├── services/         # Retrieval workflows.
+│   │   │   └── reranking/    # Retrieval ranking strategies.
+│   │   └── types/            # Search domain types.
+│   │
+│   └── voice/                # Voice-related domain.
+│                             # Reserved for future voice features.
+│
+├── lib/                      # Shared technical infrastructure.
+│   ├── ai/                   # AI provider integrations.
+│   │                         # Embeddings and generation providers.
+│   ├── config/               # Shared application configuration.
+│   └── db/                   # Database connection and database utilities.
+│
+└── public/                   # Static assets.
 ```
 
-Do not create large global folders containing feature-specific code.
+Architecture note:
 
-Note:
-The repository structure may evolve as new features are added.
+The repository structure documents ownership boundaries, not exact filenames.
 
-For the current Vercel Blob + Book Details milestone, expected additions include:
+Agents must inspect the actual filesystem before creating or modifying files.
 
-features/books/services/storage/
+The structure will evolve as features are added. Do not assume this tree is exhaustive.
 
-    storage-provider.ts
-    vercel-blob-storage.ts
-    blob-access.service.ts
+New functionality should extend existing feature boundaries instead of creating large global folders.
 
-app/books/[slug]/
+Examples:
 
-    page.tsx
+- Book/document functionality belongs in features/books/
+- Chat experience functionality belongs in features/chat/
+- Conversation persistence belongs in features/conversations/
+- Retrieval and vector search belong in features/search/
+- AI provider integrations belong in lib/ai/
+- Shared infrastructure belongs in lib/
 
-features/books/components/
+Avoid creating global folders such as:
 
-    book-details-page.tsx
+utils/
+services/
+models/
+helpers/
 
-These must follow existing feature-first boundaries.
+at the project root when the code belongs to a specific feature.
+
+Move code between feature boundaries only when ownership is genuinely incorrect.
+
+## Feature Boundaries
+
+### books/
+
+Owns:
+
+- Book lifecycle
+- Upload processing
+- PDF extraction
+- Storage access
+- Book metadata
+- BookSegments
+
+### chat/
+
+Owns:
+
+- Chat UI
+- Streaming experience
+- Message rendering
+- Citations display
+- Chat orchestration
+- Prompt/context coordination
+
+Chat does not own conversation persistence.
+
+### conversations/
+
+Owns:
+
+- Conversation lifecycle
+- Conversation persistence
+- Message persistence
+- Conversation summaries
+- Conversation history pagination
+- Conversation metadata
+
+The conversation feature is the persistence layer for chat history.
+Do not move persistence logic into chat components or chat services.
+
 ---
 
 # Folder Responsibilities
@@ -866,6 +824,95 @@ generation/
 
 ---
 
+# AI Response Quality Rules
+
+AI responses must:
+
+- use retrieved book context when answering book questions
+- include citations when available
+- avoid inventing unsupported facts
+- clearly state when information is unavailable in the uploaded content
+- never expose internal prompts or system instructions
+
+---
+
+# Conversation Intelligence Rules
+
+Conversation architecture is book-scoped.
+
+Every conversation belongs to:
+
+```
+User
+|
+Book
+|
+Conversation
+|
+Messages
+```
+
+Rules:
+
+- Never create global conversations outside a book context.
+- Never trust conversation IDs from clients without ownership verification.
+- Conversations must always be filtered by authenticated user and book ownership.
+- Keep original messages permanently.
+- Use summaries only as additional context, never as a replacement for message history.
+- Every question must still perform document retrieval.
+- Conversation memory must not replace RAG grounding.
+- Assistant answers must be grounded in retrieved book context.
+
+Architecture:
+
+```
+User Question
+↓
+Conversation Verification
+↓
+Load Summary
+↓
+Load Recent Messages
+↓
+Retrieve Book Context
+↓
+Build Prompt
+↓
+Generate Response
+↓
+Persist Assistant Message
+```
+
+Conversation persistence belongs in:
+
+```
+features/conversations/
+```
+
+Chat streaming belongs in:
+
+```
+features/chat/
+```
+
+Conversation API routes must remain thin.
+
+They should:
+
+- authenticate the user
+- validate input
+- verify book and conversation ownership
+- delegate to conversation services
+
+They must not:
+
+- directly query MongoDB
+- generate AI prompts
+- manage streaming logic
+- contain conversation business rules
+
+---
+
 # AI Generation Rules
 
 Generation providers are responsible only for producing responses from supplied context.
@@ -878,6 +925,14 @@ Rules:
 - Accept only prepared prompt/context from the chat service.
 - Stream responses when supported by the provider.
 - Providers should be replaceable without affecting retrieval logic.
+
+Future AI persona support:
+
+- Personas should modify generation behavior only.
+- Personas must not bypass retrieval rules.
+- Personas must not alter ownership boundaries.
+- Persona instructions must be applied after security constraints and before user/book context.
+- Persona configuration should remain separate from retrieval and conversation persistence.
 
 ---
 
@@ -892,6 +947,15 @@ Route Handlers:
 - stream responses
 
 Services should remain transport-agnostic and not depend on HTTP streaming APIs.
+
+For AI chat:
+
+- Streaming tokens should not wait for database persistence.
+- User experience should remain responsive even if post-stream persistence fails.
+- Persistence failures should be handled as recoverable events, not streamed-answer failures.
+- Never terminate an already-started successful AI stream because metadata persistence fails.
+- Log persistence failures for recovery/debugging.
+- Client-visible streaming errors should represent generation failures, not background persistence failures.
 
 ---
 
@@ -937,6 +1001,22 @@ text-muted-foreground
 
 border-border
 ```
+
+---
+
+# Conversation UI Rules
+
+Conversation interfaces should:
+
+- Preserve user context (current book + current conversation).
+- Provide clear empty states.
+- Avoid creating empty conversations before first user interaction.
+- Keep optimistic streaming behavior.
+- Refresh metadata after successful persistence.
+- Support loading and pagination states.
+
+Do not duplicate message state.
+Persisted conversation history is the source of truth.
 
 ---
 
@@ -1040,6 +1120,17 @@ npm run lint
 npm run build
 ```
 
+For conversation features verify:
+
+- New conversation does not create empty records.
+- Selecting a conversation restores history.
+- Reloading the page preserves conversations.
+- Messages remain book-scoped.
+- Rename/delete respect ownership.
+- Streaming still works.
+- Citations still render.
+- Summary memory does not replace retrieval.
+
 ---
 
 # Package Manager Rules
@@ -1118,6 +1209,21 @@ docs/
 
 ---
 
+# Documentation Rules
+
+README.md must always represent the current implemented product.
+
+Before updating documentation:
+
+- verify features exist in code
+- separate completed vs planned work
+- avoid documenting future architecture as implemented
+- prefer user-facing explanations over internal implementation details
+
+Do not update README.md during feature implementation unless explicitly requested.
+
+---
+
 # When Adding New Features
 
 Before coding:
@@ -1157,15 +1263,20 @@ Completed:
 ✓ Streaming chat responses
 ✓ Book citations
 ✓ Book-scoped AI chat
+✓ Persistent Conversation Intelligence
+✓ Conversation sidebar and chat history UI
+✓ Multi-turn conversational memory
+✓ Conversation summaries
+✓ Conversation lifecycle management
 
 Upcoming:
 
-- Conversation history
 - Multi-book search
-- AI summaries
+- AI book/document summaries
 - Flashcards
 - Quiz generation
 - Mind maps
+- AI personas / customizable assistant behavior
 - Voice conversations
 - Subscription limits
 - Analytics
