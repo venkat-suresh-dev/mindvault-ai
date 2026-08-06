@@ -204,9 +204,23 @@ export class GenerationOrchestratorService {
       throwIfAborted(signal); await assertLease();
       await updateProgress({ generationStage: "SAVING", progress: 95, lastProgressAt: new Date() });
       await assertLease();
-      const generation = await findKnowledgeGeneration(lifecycle);
-      if (generation?.status !== "PROCESSING") throw new DOMException("Knowledge generation was superseded or cancelled.", "AbortError");
-      await completeKnowledgeArtifact(bookId, clerkId, type, generationId, payload, citations);
+      const [generation, latestGeneration] = await Promise.all([
+        findKnowledgeGeneration(lifecycle),
+        findLatestKnowledgeGeneration(clerkId, bookId, type),
+      ]);
+      if (generation?.status === "CANCEL_REQUESTED") {
+        await this.markCancelled(bookId, clerkId, type, generationId);
+        throw new DOMException("Knowledge generation was cancelled.", "AbortError");
+      }
+      if (
+        generation?.status !== "PROCESSING" ||
+        latestGeneration?.generationId !== generationId ||
+        latestGeneration.status !== "PROCESSING"
+      ) {
+        throw new DOMException("Knowledge generation was superseded or cancelled.", "AbortError");
+      }
+      const published = await completeKnowledgeArtifact(bookId, clerkId, type, generationId, payload, citations);
+      if (!published) throw new DOMException("Knowledge generation was superseded or cancelled.", "AbortError");
       await updateKnowledgeGeneration(lifecycle, { status: "COMPLETED", progress: 100, completedAt: new Date(), errorMessage: undefined });
       logOperation("info", "knowledge.generation.completed", startedAt, { operationId, artifactId, artifactType: type, generationId });
   }

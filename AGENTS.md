@@ -327,10 +327,14 @@ Owns:
 - Quiz generation
 - Mind maps
 - Artifact persistence
-- Artifact lifecycle
 - Generation orchestration
-- Generation progress
 - Artifact regeneration
+
+Lifecycle ownership is split deliberately:
+
+- `KnowledgeArtifact` stores only stable, completed user-visible output. Never mutate it for temporary generation progress, stages, batch counters, retries, failures, or cancellation.
+- `KnowledgeGeneration` owns queued, processing, retrying, failed, cancelled, and completed lifecycle state; progress; errors; checkpoints; and generation metadata.
+- During regeneration, preserve the completed artifact until the replacement has passed the publish fence.
 
 Knowledge does NOT own:
 
@@ -978,18 +982,15 @@ Artifact services (`summary.service.ts`, `takeaway.service.ts`, `flashcard.servi
 
 Generation orchestration belongs exclusively in the Generation Orchestrator (`generation-orchestrator.service.ts`). Individual artifact services must not invoke one another directly.
 
-All artifacts must support the following lifecycle states:
+`KnowledgeGeneration` lifecycle states are `QUEUED`, `PROCESSING`, `RETRYING`, `CANCEL_REQUESTED`, `CANCELLED`, `COMPLETED`, and `FAILED`. `KnowledgeArtifact` remains the stable completed-output record rather than the active lifecycle record.
 
-- Requested
-- Generating
-- Completed
-- Failed
-
-Regeneration must reuse existing artifacts whenever possible (idempotent generation) rather than always generating from scratch.
+Regeneration creates a new lifecycle generation while preserving the completed artifact. Publish fencing is required: an older generation must never overwrite a newer published result. Batch checkpoints must be persisted and reused so a resumed generation does not regenerate completed batches. Cancellation is cooperative and must be checked before batches, provider calls, and publish; cancelled generations must never publish.
 
 Knowledge generation should be asynchronous-friendly and progress-aware: long-running generation must not block the request/response cycle, and generation status must be queryable.
 
 Knowledge artifact repositories must always filter by authenticated user and book ownership, matching the same ownership rules as BookSegments and conversations.
+
+When changing generation lifecycle behavior, add or update tests for lifecycle transitions, cancellation/publish fencing, stale-generation protection, and checkpoint/resume behavior. During local validation, never start real Gemini or other provider calls unless the user explicitly requests them.
 
 ## Knowledge Artifact Standards
 

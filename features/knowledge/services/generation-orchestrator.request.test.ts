@@ -12,10 +12,12 @@ const mocks = vi.hoisted(() => ({
   updateLifecycle: vi.fn(),
   cancellationRequested: vi.fn(),
   findGeneration: vi.fn(),
+  findLatestGeneration: vi.fn(),
   completeArtifact: vi.fn(),
   getGrounding: vi.fn(),
   summaryGenerate: vi.fn(),
   batchSummaries: vi.fn(),
+  saveBatchSummary: vi.fn(),
   enqueue: vi.fn(),
 }));
 
@@ -37,20 +39,20 @@ vi.mock("@/features/knowledge/repositories/knowledge-artifact.repository", () =>
   updateKnowledgeArtifact: mocks.updateArtifact,
   failStaleKnowledgeArtifacts: vi.fn(),
 }));
-vi.mock("@/features/knowledge/repositories/knowledge-generation.repository", () => ({ createKnowledgeGeneration: mocks.createGeneration, findActiveKnowledgeGeneration: mocks.findActiveGeneration, findKnowledgeGeneration: mocks.findGeneration, findLatestKnowledgeGeneration: vi.fn(), isKnowledgeGenerationCancellationRequested: mocks.cancellationRequested, updateKnowledgeGeneration: mocks.updateLifecycle }));
+vi.mock("@/features/knowledge/repositories/knowledge-generation.repository", () => ({ createKnowledgeGeneration: mocks.createGeneration, findActiveKnowledgeGeneration: mocks.findActiveGeneration, findKnowledgeGeneration: mocks.findGeneration, findLatestKnowledgeGeneration: mocks.findLatestGeneration, isKnowledgeGenerationCancellationRequested: mocks.cancellationRequested, updateKnowledgeGeneration: mocks.updateLifecycle }));
 vi.mock("@/features/jobs/services/job.service", () => ({ JobService: class { public enqueueKnowledgeGeneration = mocks.enqueue; } }));
 vi.mock("@/features/jobs/repositories/durable-job.repository", () => ({ countActiveKnowledgeJobs: vi.fn().mockResolvedValue(0) }));
-vi.mock("@/features/knowledge/services/flashcard.service", () => ({ FlashcardService: class {} }));
-vi.mock("@/features/knowledge/services/knowledge-artifact.service", () => ({ KnowledgeArtifactService: class { public getGrounding = mocks.getGrounding; } }));
-vi.mock("@/features/knowledge/services/mindmap.service", () => ({ MindMapService: class {} }));
-vi.mock("@/features/knowledge/services/quiz.service", () => ({ QuizService: class {} }));
-vi.mock("@/features/knowledge/services/summary.service", () => ({ SummaryService: class { public generate = mocks.summaryGenerate; } }));
-vi.mock("@/features/knowledge/services/takeaway.service", () => ({ TakeawayService: class {} }));
+vi.mock("./flashcard.service", () => ({ FlashcardService: class {} }));
+vi.mock("./knowledge-artifact.service", () => ({ KnowledgeArtifactService: class { public getGrounding = mocks.getGrounding; } }));
+vi.mock("./mindmap.service", () => ({ MindMapService: class {} }));
+vi.mock("./quiz.service", () => ({ QuizService: class {} }));
+vi.mock("./summary.service", () => ({ SummaryService: class { public generate = mocks.summaryGenerate; } }));
+vi.mock("./takeaway.service", () => ({ TakeawayService: class {} }));
 vi.mock("@/features/knowledge/services/artifact-generation.utils", () => ({ flashcardsSchema: { safeParse: () => ({ success: true }) }, mindMapSchema: { safeParse: () => ({ success: true }) }, quizSchema: { safeParse: () => ({ success: true }) }, summarySchema: { safeParse: () => ({ success: true }) }, takeawaysSchema: { safeParse: () => ({ success: true }) } }));
 vi.mock("@/lib/config/ai.config", () => ({ aiConfig: { knowledge: { staleGenerationTimeoutMs: 1, batchSegmentCount: 4, maxBatchContextTokens: 4_000, maxIntermediateTokens: 12_000, maxProviderCallsPerGeneration: 120 } } }));
 vi.mock("@/lib/observability/logger", () => ({ log: vi.fn(), logOperation: vi.fn(), safeErrorMetadata: () => ({}) }));
 vi.mock("@/lib/observability/telemetry", () => ({ captureException: vi.fn() }));
-vi.mock("@/features/knowledge/repositories/knowledge-generation-batch.repository", () => ({ listKnowledgeGenerationBatchSummaries: mocks.batchSummaries, saveKnowledgeGenerationBatchSummary: vi.fn() }));
+vi.mock("@/features/knowledge/repositories/knowledge-generation-batch.repository", () => ({ listKnowledgeGenerationBatchSummaries: mocks.batchSummaries, saveKnowledgeGenerationBatchSummary: mocks.saveBatchSummary }));
 vi.mock("@/features/knowledge/repositories/ai-usage.repository", () => ({ recordAiUsage: vi.fn() }));
 
 import { GenerationOrchestratorService } from "./generation-orchestrator.service";
@@ -76,6 +78,7 @@ describe("GenerationOrchestratorService retry request", () => {
     mocks.createGeneration.mockImplementation(async (input: { generationId: string }) => ({ generationId: input.generationId }));
     mocks.cancellationRequested.mockResolvedValue(false);
     mocks.findGeneration.mockResolvedValue({ status: "PROCESSING" });
+    mocks.findLatestGeneration.mockResolvedValue({ generationId: "generation-1", status: "PROCESSING" });
     mocks.getGrounding.mockResolvedValue([{ context: "context", citations: [] }]);
     mocks.summaryGenerate.mockResolvedValue({ executiveSummary: "summary", overview: "overview", mainThemes: [], importantConcepts: [], mainArguments: [], conclusion: "conclusion" });
     mocks.batchSummaries.mockResolvedValue([]);
@@ -138,4 +141,79 @@ describe("GenerationOrchestratorService retry request", () => {
     expect(mocks.updateArtifact).not.toHaveBeenCalled();
   });
 
+});
+
+describe("GenerationOrchestratorService publish fencing", () => {
+  const completedSummary = { executiveSummary: "old", overview: "old", mainThemes: [], importantConcepts: [], mainArguments: [], conclusion: "old" };
+  const generatedSummary = { executiveSummary: "new", overview: "new", mainThemes: [], importantConcepts: [], mainArguments: [], conclusion: "new" };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.cancellationRequested.mockResolvedValue(false);
+    mocks.findGeneration.mockResolvedValue({ status: "PROCESSING" });
+    mocks.findLatestGeneration.mockResolvedValue({ generationId: "generation-a", status: "PROCESSING" });
+    mocks.getGrounding.mockResolvedValue([
+      { context: "first", citations: [] },
+      { context: "second", citations: [] },
+    ]);
+    mocks.batchSummaries.mockResolvedValue([]);
+    mocks.summaryGenerate.mockResolvedValue(generatedSummary);
+    mocks.completeArtifact.mockResolvedValue(true);
+  });
+
+  function runGeneration(generationId = "generation-a") {
+    return new GenerationOrchestratorService().runQueuedGeneration(
+      "book-1",
+      "user-1",
+      "SUMMARY",
+      "artifact-1",
+      generationId,
+      vi.fn().mockResolvedValue(undefined),
+      new AbortController().signal,
+      {},
+      vi.fn().mockResolvedValue(undefined),
+    );
+  }
+
+  it("cancels at the final publish fence without changing the completed artifact", async () => {
+    const stableArtifact = { summary: completedSummary, generationId: "generation-previous" };
+    mocks.findGeneration.mockImplementation(async () => {
+      mocks.cancellationRequested.mockResolvedValue(true);
+      return { status: "CANCEL_REQUESTED" };
+    });
+
+    await expect(runGeneration()).rejects.toMatchObject({ name: "AbortError" });
+
+    expect(mocks.completeArtifact).not.toHaveBeenCalled();
+    expect(stableArtifact).toEqual({ summary: completedSummary, generationId: "generation-previous" });
+    expect(mocks.updateLifecycle).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({ status: "CANCELLED" }));
+  });
+
+  it("rejects a stale generation after a newer generation has published", async () => {
+    const stableArtifact = { summary: generatedSummary, generationId: "generation-b" };
+    mocks.findLatestGeneration.mockResolvedValue({ generationId: "generation-b", status: "COMPLETED" });
+
+    await expect(runGeneration("generation-a")).rejects.toMatchObject({ name: "AbortError" });
+
+    expect(mocks.completeArtifact).not.toHaveBeenCalled();
+    expect(stableArtifact).toEqual({ summary: generatedSummary, generationId: "generation-b" });
+  });
+
+  it("resumes from persisted batches and publishes exactly once", async () => {
+    mocks.batchSummaries.mockResolvedValue([{ batchIndex: 0, summary: "persisted first batch" }]);
+    mocks.summaryGenerate.mockImplementation(async (_batches, onProgress, _signal, checkpoint) => {
+      expect([...checkpoint.completedSummaries.entries()]).toEqual([[0, "persisted first batch"]]);
+      await checkpoint.onBeforeBatch();
+      await checkpoint.saveSummary(1, "new second batch");
+      await onProgress?.(2, 2);
+      return generatedSummary;
+    });
+
+    await runGeneration();
+
+    expect(mocks.saveBatchSummary).toHaveBeenCalledTimes(1);
+    expect(mocks.saveBatchSummary).toHaveBeenCalledWith(expect.objectContaining({ batchIndex: 1, summary: "new second batch" }));
+    expect(mocks.completeArtifact).toHaveBeenCalledTimes(1);
+    expect(mocks.completeArtifact).toHaveBeenCalledWith("book-1", "user-1", "SUMMARY", "generation-a", { summary: generatedSummary }, []);
+  });
 });

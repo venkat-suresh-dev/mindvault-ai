@@ -24,10 +24,13 @@ export async function requestKnowledgeArtifact(bookId: string, clerkId: string, 
 /**
  * Returns the stable artifact target without changing completed content.
  */
-export async function prepareKnowledgeArtifactRegeneration(bookId: string, clerkId: string, type: KnowledgeArtifactType, _generationId: string) {
-  void _generationId;
+export async function prepareKnowledgeArtifactRegeneration(bookId: string, clerkId: string, type: KnowledgeArtifactType, generationId: string) {
   await connectToDatabase();
-  return KnowledgeArtifactModel.findOne({ bookId, clerkId, type, status: "COMPLETED" }).lean();
+  return KnowledgeArtifactModel.findOneAndUpdate(
+    { bookId, clerkId, type, status: "COMPLETED" },
+    { $set: { generationId } },
+    { returnDocument: "after" },
+  ).lean();
 }
 
 export async function updateKnowledgeArtifact(bookId: string, clerkId: string, type: KnowledgeArtifactType, generationId: string, update: Record<string, unknown>) {
@@ -59,12 +62,13 @@ export async function markKnowledgeArtifactPayloadInvalid(bookId: string, clerkI
   );
 }
 
-export async function completeKnowledgeArtifact(bookId: string, clerkId: string, type: KnowledgeArtifactType, generationId: string, payload: Record<string, unknown>, sourceSegments: unknown[]): Promise<void> {
+export async function completeKnowledgeArtifact(bookId: string, clerkId: string, type: KnowledgeArtifactType, generationId: string, payload: Record<string, unknown>, sourceSegments: unknown[]): Promise<boolean> {
   await connectToDatabase();
-  await KnowledgeArtifactModel.updateOne(
-    { bookId, clerkId, type },
+  const result = await KnowledgeArtifactModel.updateOne(
+    { bookId, clerkId, type, generationId },
     { $set: { ...payload, sourceSegments, generationId, status: "COMPLETED", progress: 100, completedAt: new Date() }, $unset: { errorMessage: 1, failedAt: 1 } },
   );
+  return result.matchedCount === 1;
 }
 
 export async function failStaleKnowledgeArtifacts(bookId: string, clerkId: string, staleBefore: Date): Promise<void> {

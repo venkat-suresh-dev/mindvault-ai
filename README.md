@@ -203,8 +203,34 @@ Implemented capabilities:
 - Quiz generation with explanations
 - Mind maps
 - Artifact citations and source-segment provenance
-- Requested, generating, completed, and failed generation states
-- Generation progress tracking, retry support, stale-generation recovery, and regeneration
+- Durable, checkpointed knowledge generation with retry, cancellation, and regeneration
+
+### Knowledge generation architecture
+
+```text
+User request
+  |
+  v
+Durable job queue
+  |
+  v
+KnowledgeGeneration lifecycle
+  |
+  v
+Checkpointed batch processing
+  |
+  v
+Atomic publish
+  |
+  v
+KnowledgeArtifact (stable completed output)
+```
+
+`KnowledgeArtifact` stores completed, user-visible content only. It is not used for temporary generation progress, so an existing completed artifact remains available while a replacement is generated.
+
+`KnowledgeGeneration` owns queued, processing, retry, failure, cancellation, progress, checkpoint, and generation-metadata state. A regeneration creates a new lifecycle generation. Publish fencing prevents stale generations from replacing a newer published result.
+
+Knowledge batches are checkpointed. After an interruption, a generation resumes from its persisted checkpoints and does not regenerate batches that have already completed. Cancellation is cooperative: the orchestration checks for it before batches, provider calls, and publish, and a cancelled generation cannot publish a completed artifact.
 
 ## RAG Architecture
 
@@ -220,7 +246,7 @@ The retrieval and generation flow is intentionally separated:
 
 This keeps retrieval grounded, book-scoped, and independent from generation.
 
-Knowledge regeneration preserves the last completed artifact while a separate `KnowledgeGeneration` tracks progress, retries, cancellation, and resumable batch checkpoints. The knowledge API returns `completedArtifact` and `activeGeneration`; duplicate active requests for the same user, book, and artifact type reuse the existing generation. AI accounting is recorded per generation-provider and embedding-provider attempt without storing prompts, source text, vectors, or secrets.
+Knowledge regeneration preserves the last completed artifact while a separate `KnowledgeGeneration` tracks lifecycle state and resumable batch checkpoints. The knowledge API returns `completedArtifact` and `activeGeneration`; duplicate active requests for the same user, book, and artifact type reuse the existing generation. Provider attempts and embedding usage are tracked in privacy-safe usage records that never store prompts, source text, vectors, or secrets.
 
 ## User Experience
 
@@ -301,6 +327,10 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Durable worker model
+
+For development, the durable worker can be run locally to execute queued jobs. Application/API handling and worker execution are separated concerns. The current Vercel deployment does not provide a permanent background worker; production worker hosting remains a deployment decision.
 
 ### Production Checks
 
