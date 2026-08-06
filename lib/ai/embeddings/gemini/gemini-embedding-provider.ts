@@ -3,13 +3,14 @@ import "server-only";
 import { GoogleGenAI } from "@google/genai";
 import { aiConfig } from "@/lib/config/ai.config";
 import { EmbeddingGenerationError } from "../embedding-errors";
-import type { EmbeddingProvider } from "../embedding-provider";
+import type { EmbeddingAttemptCallback, EmbeddingProvider } from "../embedding-provider";
 import type { GeneratedEmbedding } from "../types";
+import { log } from "@/lib/observability/logger";
 
 export class GeminiEmbeddingProvider implements EmbeddingProvider {
   private readonly client = new GoogleGenAI({ apiKey: aiConfig.gemini.apiKey });
 
-  public async embedDocuments(texts: string[]): Promise<GeneratedEmbedding[]> {
+  public async embedDocuments(texts: string[], signal?: AbortSignal, onAttempt?: EmbeddingAttemptCallback): Promise<GeneratedEmbedding[]> {
     if (texts.length === 0) return [];
 
     try {
@@ -23,13 +24,13 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
             config: {
               taskType: "RETRIEVAL_DOCUMENT",
               outputDimensionality: aiConfig.embeddings.dimensions,
-              abortSignal: abortController.signal,
+              abortSignal: combineSignals(signal, abortController.signal),
             },
           });
         } finally {
           clearTimeout(timeout);
         }
-      });
+      }, onAttempt);
 
       const embeddings = response.embeddings ?? [];
       if (embeddings.length !== texts.length) {
@@ -44,12 +45,13 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
         return { vector: normalizeVector(vector), model: aiConfig.embeddings.model, dimensions: aiConfig.embeddings.dimensions };
       });
     } catch (error) {
+      logDevelopmentProviderFailure(error);
       if (error instanceof EmbeddingGenerationError) throw error;
       throw new EmbeddingGenerationError("Unable to generate embeddings.", { cause: error });
     }
   }
 
-  public async embedQuery(text: string): Promise<GeneratedEmbedding> {
+  public async embedQuery(text: string, signal?: AbortSignal): Promise<GeneratedEmbedding> {
     try {
       const response = await this.client.models.embedContent({
         model: aiConfig.embeddings.model,
@@ -57,6 +59,7 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
         config: {
           taskType: "RETRIEVAL_QUERY",
           outputDimensionality: aiConfig.embeddings.dimensions,
+          abortSignal: signal,
         },
       });
       const vector = response.embeddings?.[0]?.values;
@@ -65,17 +68,22 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
       }
       return { vector: normalizeVector(vector), model: aiConfig.embeddings.model, dimensions: aiConfig.embeddings.dimensions };
     } catch (error) {
+      logDevelopmentProviderFailure(error);
       if (error instanceof EmbeddingGenerationError) throw error;
       throw new EmbeddingGenerationError("Unable to generate a question embedding.", { cause: error });
     }
   }
 
-  private async withTransientRetry<T>(operation: () => Promise<T>): Promise<T> {
+  private async withTransientRetry<T>(operation: () => Promise<T>, onAttempt?: EmbeddingAttemptCallback): Promise<T> {
     let lastError: unknown;
     for (let attempt = 1; attempt <= aiConfig.embeddings.maxRetries; attempt += 1) {
       try {
-        return await operation();
+        const startedAt = Date.now();
+        const value = await operation();
+        await onAttempt?.({ attempt, durationMs: Date.now() - startedAt, success: true });
+        return value;
       } catch (error) {
+        await onAttempt?.({ attempt, durationMs: 0, success: false, errorClassification: isTransientEmbeddingError(error) ? "TRANSIENT" : "PROVIDER" });
         lastError = error;
         if (!isTransientEmbeddingError(error) || attempt === aiConfig.embeddings.maxRetries) break;
         await delay(aiConfig.embeddings.retryBaseDelayMs * 2 ** (attempt - 1));
@@ -83,6 +91,20 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
     }
     throw lastError;
   }
+}
+
+function logDevelopmentProviderFailure(error: unknown): void {
+  if (process.env.NODE_ENV !== "development") return;
+  const code = error instanceof Error ? getErrorCode(error) : undefined;
+  log("debug", "ai.embedding.provider.failure", {
+    providerErrorMessage: error instanceof Error ? error.message : "Unknown provider error",
+    providerErrorCode: code,
+  });
+}
+
+function getErrorCode(error: Error): string | number | undefined {
+  const code = Reflect.get(error, "code") ?? Reflect.get(error, "status") ?? Reflect.get(error, "statusCode");
+  return typeof code === "string" || typeof code === "number" ? code : undefined;
 }
 
 function normalizeVector(vector: number[]): number[] {
@@ -107,4 +129,14 @@ function getNumericProperty(value: object, key: string): number | undefined {
 
 function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function combineSignals(external: AbortSignal | undefined, timeout: AbortSignal): AbortSignal {
+  if (!external) return timeout;
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  external.addEventListener("abort", abort, { once: true });
+  timeout.addEventListener("abort", abort, { once: true });
+  if (external.aborted || timeout.aborted) controller.abort();
+  return controller.signal;
 }

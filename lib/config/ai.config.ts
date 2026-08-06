@@ -1,10 +1,11 @@
 import type { EmbeddingModel } from "@/lib/ai/embeddings/types";
+import { getEnvironment } from "@/lib/config/env";
 
 const GEMINI_EMBEDDING_MODEL: EmbeddingModel = "gemini-embedding-001";
 const GENERATION_MODEL_NAME_PATTERN = /^gemini-[a-z0-9.-]+$/;
 
 function getRequiredEnvironmentVariable(name: "GOOGLE_GEMINI_API_KEY"): string {
-  const value = process.env[name]?.trim();
+  const value = getEnvironment()[name];
   if (!value)
     throw new Error(`${name} must be configured before generating embeddings.`);
   return value;
@@ -41,6 +42,7 @@ export const aiConfig = {
     maxMindMapDepth: 4,
     generationTimeoutMs: 600_000,
     staleGenerationTimeoutMs: 660_000,
+    maxProviderCallsPerGeneration: 120,
   },
   retrieval: {
     vectorIndexName: "book_segments_vector_index",

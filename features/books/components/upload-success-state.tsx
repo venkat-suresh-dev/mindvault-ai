@@ -7,7 +7,7 @@ interface UploadSuccessStateProps {
   onUploadAnother: () => void;
 }
 
-const COMPLETION_STEPS = ["Upload completed", "Text extracted", "AI embeddings generated"];
+const PROCESSING_STEPS = ["Upload completed", "Processing queued", "You can return while we prepare your book"];
 
 export function UploadSuccessState({ bookTitle, onUploadAnother }: UploadSuccessStateProps) {
   return (
@@ -15,14 +15,14 @@ export function UploadSuccessState({ bookTitle, onUploadAnother }: UploadSuccess
       <div className="bg-primary/10 text-primary flex size-12 items-center justify-center rounded-full">
         <CheckCircle2 className="size-6" aria-hidden="true" />
       </div>
-      <p className="text-primary mt-5 text-sm font-semibold">Your book is ready</p>
+      <p className="text-primary mt-5 text-sm font-semibold">Your book is processing</p>
       <h2 id="upload-complete-heading" className="mt-1 text-2xl font-bold tracking-tight">{bookTitle}</h2>
       <p className="text-muted-foreground mt-3 max-w-lg leading-7">
-        MindVault has prepared this book for grounded AI conversations.
+        MindVault is preparing this book for grounded AI conversations. You can return to your library while processing continues.
       </p>
 
-      <ul className="mt-7 space-y-3" aria-label="Completed processing steps">
-        {COMPLETION_STEPS.map((step) => (
+      <ul className="mt-7 space-y-3" aria-label="Book processing steps">
+        {PROCESSING_STEPS.map((step) => (
           <li key={step} className="flex items-center gap-3 text-sm">
             <CheckCircle2 className="text-primary size-4" aria-hidden="true" />
             {step}

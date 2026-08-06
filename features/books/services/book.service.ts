@@ -21,6 +21,12 @@ import { normalizeBookTitle } from "@/features/books/utils/normalize-book-title"
 import type { BookSegmentInput, CreateBookInput } from "@/features/books/types/book";
 import { MongoServerError } from "mongodb";
 import { deleteKnowledgeArtifactsForBook } from "@/features/knowledge/repositories/knowledge-artifact.repository";
+import { deleteKnowledgeGenerationBatchesForBook } from "@/features/knowledge/repositories/knowledge-generation-batch.repository";
+import { deleteKnowledgeGenerationsForBook } from "@/features/knowledge/repositories/knowledge-generation.repository";
+import { deleteAiUsageForBook } from "@/features/knowledge/repositories/ai-usage.repository";
+import { JobService } from "@/features/jobs/services/job.service";
+import { deleteJobsForBook } from "@/features/jobs/repositories/durable-job.repository";
+import { BlobCleanupService } from "@/features/books/services/storage/blob-cleanup.service";
 
 const MAX_SLUG_ATTEMPTS = 100;
 
@@ -74,16 +80,20 @@ export async function deleteBookForUser(
   storage: StorageProvider = new VercelBlobStorage(),
 ): Promise<void> {
   const book = await getBookForUser(bookId, clerkId);
-  if (book.processingStatus !== "READY" && book.processingStatus !== "FAILED") {
-    throw new BookValidationError("Books can only be deleted after processing has finished.");
-  }
-
   const storageKeys = [book.fileBlobKey, book.coverBlobKey].filter((key): key is string => Boolean(key));
+  await new JobService().cancelBookJobs(bookId, clerkId);
   const deleted = await deleteBookAndSegmentsForUser(bookId, clerkId);
   if (!deleted) throw new BookNotFoundError();
-  await deleteKnowledgeArtifactsForBook(bookId, clerkId);
+  await Promise.all([
+    deleteKnowledgeArtifactsForBook(bookId, clerkId),
+    deleteKnowledgeGenerationBatchesForBook(bookId, clerkId),
+    deleteKnowledgeGenerationsForBook(bookId, clerkId),
+    deleteAiUsageForBook(bookId, clerkId),
+    deleteJobsForBook(bookId, clerkId),
+  ]);
 
-  const cleanup = await Promise.allSettled(storageKeys.map((key) => storage.delete(key)));
+  const cleanupService = new BlobCleanupService();
+  const cleanup = await Promise.allSettled(storageKeys.map((key) => cleanupService.delete(bookId, clerkId, key, storage)));
   if (cleanup.some((result) => result.status === "rejected")) throw new BookStorageCleanupPendingError();
 }
 

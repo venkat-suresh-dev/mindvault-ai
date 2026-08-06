@@ -45,7 +45,6 @@ export function BookCard({ book }: BookCardProps) {
   const [isRemoved, setIsRemoved] = useState(false);
   const [error, setError] = useState<string>();
   const [isDeleting, startTransition] = useTransition();
-  const canDelete = book.processingStatus === "READY" || book.processingStatus === "FAILED";
   const coverSource = book.coverBlobKey
     ? `/api/books/${encodeURIComponent(book.slug)}/cover`
     : book.coverUrl && !book.coverUrl.includes("storage.local")
@@ -55,7 +54,7 @@ export function BookCard({ book }: BookCardProps) {
   if (isRemoved) return null;
 
   const handleDelete = () => {
-    if (isDeleting || !canDelete) return;
+    if (isDeleting) return;
 
     setError(undefined);
     setIsOpen(false);
@@ -106,8 +105,8 @@ export function BookCard({ book }: BookCardProps) {
             variant="ghost"
             size="icon-sm"
             className="bg-background/90 hover:bg-destructive/10 hover:text-destructive absolute top-2 right-2 opacity-0 shadow-sm group-hover:opacity-100 focus-visible:opacity-100"
-            disabled={!canDelete || isDeleting}
-            aria-label={canDelete ? `Delete ${book.title}` : "Delete is available when processing finishes"}
+            disabled={isDeleting}
+            aria-label={`Delete ${book.title}`}
           >
             {isDeleting ? <LoaderCircle className="animate-spin" /> : <Trash2 />}
           </Button>

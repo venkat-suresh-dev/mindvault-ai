@@ -7,13 +7,27 @@ export async function listKnowledgeArtifacts(bookId: string, clerkId: string) {
   return KnowledgeArtifactModel.find({ bookId, clerkId }).sort({ type: 1 }).lean();
 }
 
+export async function findKnowledgeArtifact(bookId: string, clerkId: string, type: KnowledgeArtifactType) {
+  await connectToDatabase();
+  return KnowledgeArtifactModel.findOne({ bookId, clerkId, type }).lean();
+}
+
 export async function requestKnowledgeArtifact(bookId: string, clerkId: string, type: KnowledgeArtifactType, generationId: string) {
   await connectToDatabase();
   return KnowledgeArtifactModel.findOneAndUpdate(
     { bookId, clerkId, type },
-    { $set: { generationId, status: "REQUESTED", progress: 0, sourceSegments: [] }, $unset: { generationStage: 1, currentBatch: 1, totalBatches: 1, startedAt: 1, completedAt: 1, failedAt: 1, lastProgressAt: 1, errorMessage: 1, summary: 1, takeaways: 1, flashcards: 1, quiz: 1, mindMap: 1 } },
+    { $setOnInsert: { bookId, clerkId, type, generationId, status: "REQUESTED", progress: 0, sourceSegments: [] } },
     { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   ).lean();
+}
+
+/**
+ * Returns the stable artifact target without changing completed content.
+ */
+export async function prepareKnowledgeArtifactRegeneration(bookId: string, clerkId: string, type: KnowledgeArtifactType, _generationId: string) {
+  void _generationId;
+  await connectToDatabase();
+  return KnowledgeArtifactModel.findOne({ bookId, clerkId, type, status: "COMPLETED" }).lean();
 }
 
 export async function updateKnowledgeArtifact(bookId: string, clerkId: string, type: KnowledgeArtifactType, generationId: string, update: Record<string, unknown>) {
@@ -29,6 +43,14 @@ export async function markKnowledgeArtifactFailed(bookId: string, clerkId: strin
   );
 }
 
+export async function markKnowledgeArtifactRetrying(bookId: string, clerkId: string, type: KnowledgeArtifactType, generationId: string): Promise<void> {
+  await connectToDatabase();
+  await KnowledgeArtifactModel.updateOne(
+    { bookId, clerkId, type, generationId },
+    { $set: { status: "RETRYING", errorMessage: "Generation is retrying after a temporary provider error.", lastProgressAt: new Date() }, $unset: { failedAt: 1 } },
+  );
+}
+
 export async function markKnowledgeArtifactPayloadInvalid(bookId: string, clerkId: string, artifactId: string): Promise<void> {
   await connectToDatabase();
   await KnowledgeArtifactModel.updateOne(
@@ -40,8 +62,8 @@ export async function markKnowledgeArtifactPayloadInvalid(bookId: string, clerkI
 export async function completeKnowledgeArtifact(bookId: string, clerkId: string, type: KnowledgeArtifactType, generationId: string, payload: Record<string, unknown>, sourceSegments: unknown[]): Promise<void> {
   await connectToDatabase();
   await KnowledgeArtifactModel.updateOne(
-    { bookId, clerkId, type, generationId },
-    { $set: { ...payload, sourceSegments, status: "COMPLETED", progress: 100, completedAt: new Date() }, $unset: { errorMessage: 1, failedAt: 1 } },
+    { bookId, clerkId, type },
+    { $set: { ...payload, sourceSegments, generationId, status: "COMPLETED", progress: 100, completedAt: new Date() }, $unset: { errorMessage: 1, failedAt: 1 } },
   );
 }
 
@@ -85,4 +107,12 @@ export async function normalizeKnowledgeArtifactLifecycle(bookId: string, clerkI
 export async function deleteKnowledgeArtifactsForBook(bookId: string, clerkId: string): Promise<void> {
   await connectToDatabase();
   await KnowledgeArtifactModel.deleteMany({ bookId, clerkId });
+}
+
+export async function findStaleKnowledgeArtifactsForReconciliation(staleBefore: Date) {
+  await connectToDatabase();
+  return KnowledgeArtifactModel.find({ status: { $in: ["REQUESTED", "GENERATING"] }, updatedAt: { $lt: staleBefore } })
+    .select({ _id: 1, bookId: 1, clerkId: 1, type: 1, generationId: 1, status: 1, updatedAt: 1 })
+    .limit(100)
+    .lean();
 }

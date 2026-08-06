@@ -1,5 +1,7 @@
 export interface ChatGenerationInput {
   prompt: string;
+  signal?: AbortSignal;
+  onAttempt?: (model: string) => Promise<void> | void;
 }
 
 export interface ChatProvider {

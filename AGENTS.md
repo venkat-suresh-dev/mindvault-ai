@@ -1000,7 +1000,7 @@ Knowledge artifacts should be:
 - idempotent
 - retryable
 - progress-aware
-- cancellable (future)
+- cancellable through KnowledgeGeneration lifecycle records; cancellation preserves completed artifacts and checkpoints
 - independently regeneratable
 
 These standards apply to every current artifact type (summaries, takeaways, flashcards, quizzes, mind maps) and should guide future artifact types (spaced repetition, learning plans).

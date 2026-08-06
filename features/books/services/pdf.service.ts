@@ -2,79 +2,38 @@ import "server-only";
 
 import { BOOK_UPLOAD_LIMITS } from "@/features/books/constants/book-upload";
 import { PdfProcessingError } from "@/features/books/errors/book-errors";
-import type {
-  ExtractedPdf,
-  PdfMetadata,
-} from "@/features/books/types/book-processing";
-import { extractText, getDocumentProxy, getMeta } from "unpdf";
+import type { ExtractedPdfPage, PdfMetadata } from "@/features/books/types/book-processing";
+import { getDocumentProxy, getMeta } from "unpdf";
+import { log, safeErrorMetadata } from "@/lib/observability/logger";
 
 export class PdfService {
-  public async extract(file: File): Promise<ExtractedPdf> {
-    if (file.size > BOOK_UPLOAD_LIMITS.pdfBytes) {
-      throw new PdfProcessingError(
-        `PDF files are limited to ${formatBytes(BOOK_UPLOAD_LIMITS.pdfBytes)}.`,
-      );
-    }
-
+  public async extractPages(file: File, onPages: (pages: ExtractedPdfPage[]) => Promise<void>, windowSize = 16, startPage = 1): Promise<PdfMetadata> {
+    if (file.size > BOOK_UPLOAD_LIMITS.pdfBytes) throw new PdfProcessingError(`PDF files are limited to ${formatBytes(BOOK_UPLOAD_LIMITS.pdfBytes)}.`);
     try {
-      const buffer = await file.arrayBuffer();
-      // Initialize the unpdf proxy which safely wraps PDF.js in any environment
-      const pdf = await getDocumentProxy(new Uint8Array(buffer));
-
-      // 1. Extract Metadata using unpdf's helper
-      const metaDataResult = await getMeta(pdf);
-      const metadata = extractMetadata(metaDataResult.info);
-
-      // 2. Extract Text
-      // Passing mergePages: false instructs unpdf to return a string array (one per page)
-      const { totalPages, text } = await extractText(pdf, {
-        mergePages: false,
-      });
-
-      if (totalPages === 0 || text.length === 0) {
-        throw new PdfProcessingError("The uploaded PDF has no pages.");
+      const pdf = await getDocumentProxy(new Uint8Array(await file.arrayBuffer()));
+      if (pdf.numPages === 0) throw new PdfProcessingError("The uploaded PDF has no pages.");
+      if (pdf.numPages > BOOK_UPLOAD_LIMITS.pdfPages) throw new PdfProcessingError(`PDF files are limited to ${BOOK_UPLOAD_LIMITS.pdfPages} pages.`);
+      const metadata = extractMetadata((await getMeta(pdf)).info);
+      for (let start = Math.max(1, startPage); start <= pdf.numPages; start += windowSize) {
+        const pages: ExtractedPdfPage[] = [];
+        for (let pageNumber = start; pageNumber < Math.min(start + windowSize, pdf.numPages + 1); pageNumber += 1) {
+          const content = await pdf.getPage(pageNumber).then((page) => page.getTextContent());
+          const text = normalizeText(content.items.map((item) => isTextItem(item) ? item.str : "").join(" "));
+          if (text) pages.push({ pageNumber, text });
+        }
+        if (pages.length > 0) await onPages(pages);
       }
-
-      if (totalPages > BOOK_UPLOAD_LIMITS.pdfPages) {
-        throw new PdfProcessingError(
-          `PDF files are limited to ${BOOK_UPLOAD_LIMITS.pdfPages} pages.`,
-        );
-      }
-
-      // 3. Process and clean the text array into our required page objects
-      const validPages = (text as string[])
-        .map((pageText, index) => ({
-          pageNumber: index + 1,
-          text: normalizeText(pageText),
-        }))
-        .filter((page) => page.text.length > 0);
-
-      if (validPages.length === 0) {
-        throw new PdfProcessingError(
-          "The uploaded PDF does not contain extractable text.",
-        );
-      }
-
-      return {
-        metadata: {
-          ...metadata,
-          pageCount: totalPages,
-        },
-        pages: validPages,
-      };
+      return { ...metadata, pageCount: pdf.numPages };
     } catch (error) {
-      console.error("PDF PROCESSING ERROR:", error);
-
-      if (error instanceof PdfProcessingError) {
-        throw error;
-      }
-
-      throw new PdfProcessingError("Unable to process PDF.", {
-        cause: error,
-      });
+      log("error", "book.pdf_processing.failed", safeErrorMetadata(error));
+      if (error instanceof PdfProcessingError) throw error;
+      throw new PdfProcessingError("Unable to process PDF.", { cause: error });
     }
   }
+
 }
+
+function isTextItem(value: unknown): value is { str: string } { return typeof value === "object" && value !== null && "str" in value && typeof value.str === "string"; }
 
 // ----------------------------------------------------------------------
 // Helpers

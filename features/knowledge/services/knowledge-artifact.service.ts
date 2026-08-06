@@ -7,7 +7,13 @@ import { aiConfig } from "@/lib/config/ai.config";
 import type { KnowledgeCitation } from "@/features/knowledge/types/knowledge";
 
 export interface GroundingBatch { context: string; citations: KnowledgeCitation[] }
-export interface GroundingProgressCallbacks { onSegmentsLoaded: () => Promise<void>; onBatchPrepared: (completedBatches: number, totalBatches: number) => Promise<void> }
+export interface GroundingProgressCallbacks { onSegmentsLoaded: () => Promise<void>; onBatchPrepared: (completedBatches: number, totalBatches: number) => Promise<void>; signal?: AbortSignal }
+export interface BatchSummaryCheckpoint {
+  completedSummaries: ReadonlyMap<number, string>;
+  saveSummary: (batchIndex: number, summary: string) => Promise<void>;
+  onBeforeBatch: (batchIndex: number) => Promise<void>;
+  onProviderAttempt: (model: string) => Promise<void>;
+}
 
 export class KnowledgeArtifactService {
   private readonly contextBuilder = new ContextBuilderService();
@@ -21,6 +27,7 @@ export class KnowledgeArtifactService {
     const totalBatches = Math.ceil(segments.length / aiConfig.knowledge.batchSegmentCount);
     await callbacks.onSegmentsLoaded();
     for (let start = 0; start < segments.length; start += aiConfig.knowledge.batchSegmentCount) {
+      throwIfAborted(callbacks.signal);
       const current = segments.slice(start, start + aiConfig.knowledge.batchSegmentCount);
       const retrieval = { segments: current.map((segment) => ({ ...segment, score: 1 })), citations: current.map((segment) => ({ page: segment.pageNumber, segmentId: segment.id })) };
       const built = this.contextBuilder.build(retrieval, "Create a grounded learning artifact.");
@@ -30,10 +37,27 @@ export class KnowledgeArtifactService {
     return batches;
   }
 
-  protected async summarizeBatches(batches: GroundingBatch[], onProgress?: (completedBatches: number, totalBatches: number) => Promise<void>): Promise<string> {
+  protected async summarizeBatches(
+    batches: GroundingBatch[],
+    onProgress: ((completedBatches: number, totalBatches: number) => Promise<void>) | undefined,
+    signal: AbortSignal | undefined,
+    checkpoint: BatchSummaryCheckpoint,
+  ): Promise<string> {
     const summaries: string[] = [];
     for (const [index, batch] of batches.entries()) {
-      summaries.push(await this.provider.generate({ prompt: `Summarize this book excerpt using only its context. Preserve its important concepts and arguments. Do not add facts.\n\n${batch.context}` }));
+      await checkpoint.onBeforeBatch(index);
+      throwIfAborted(signal);
+      const completedSummary = checkpoint.completedSummaries.get(index);
+      if (completedSummary !== undefined) {
+        summaries.push(completedSummary);
+        await onProgress?.(index + 1, batches.length);
+        continue;
+      }
+
+      const summary = await this.provider.generate({ prompt: `Summarize this book excerpt using only its context. Preserve its important concepts and arguments. Do not add facts.\n\n${batch.context}`, signal, onAttempt: checkpoint.onProviderAttempt });
+      throwIfAborted(signal);
+      await checkpoint.saveSummary(index, summary);
+      summaries.push(summary);
       await onProgress?.(index + 1, batches.length);
     }
     return summaries.join("\n\n").slice(0, aiConfig.knowledge.maxIntermediateTokens * 4);
@@ -43,3 +67,5 @@ export class KnowledgeArtifactService {
     return batches.flatMap((batch) => batch.citations).filter((citation, index, all) => all.findIndex((candidate) => candidate.segmentId === citation.segmentId) === index);
   }
 }
+
+function throwIfAborted(signal: AbortSignal | undefined): void { if (signal?.aborted) throw new DOMException("Knowledge generation was cancelled.", "AbortError"); }

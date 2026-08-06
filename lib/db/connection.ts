@@ -1,6 +1,7 @@
 import "server-only";
 
 import mongoose, { type Mongoose } from "mongoose";
+import { getEnvironment } from "@/lib/config/env";
 import { DatabaseError } from "./errors";
 
 interface MongooseCache {
@@ -20,7 +21,7 @@ const cache = (globalWithMongoose.mongoose ??= {
 export async function connectToDatabase(): Promise<Mongoose> {
   if (cache.connection) return cache.connection;
 
-  const mongoDbUri = process.env.MONGODB_URI;
+  const mongoDbUri = getEnvironment().MONGODB_URI;
   if (!mongoDbUri) {
     throw new DatabaseError("CONNECTION_FAILED", "The MONGODB_URI environment variable is not configured.");
   }

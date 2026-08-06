@@ -98,3 +98,11 @@ export async function updateBookProcessingStatus(
   await connectToDatabase();
   return BookModel.updateOne({ _id: bookId }, { $set: { processingStatus } }, context);
 }
+
+export async function findStaleBooksForReconciliation(staleBefore: Date) {
+  await connectToDatabase();
+  return BookModel.find({ processingStatus: { $in: ["UPLOADING", "PROCESSING", "PROCESSING_EMBEDDINGS"] }, updatedAt: { $lt: staleBefore } })
+    .select({ _id: 1, clerkId: 1, processingStatus: 1, totalSegments: 1, fileBlobKey: 1, updatedAt: 1 })
+    .limit(100)
+    .lean();
+}

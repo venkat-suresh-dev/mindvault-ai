@@ -67,13 +67,7 @@ export function BookDetailsPage({ book, initialConversations }: { book: BookDeta
               <Detail icon={CalendarDays} label="Uploaded" value={uploadedDate} />
               <Detail icon={MicVocal} label="Voice" value={book.persona ?? "Default persona"} />
             </dl>
-            <BookDeleteButton
-              bookId={book.id}
-              disabled={
-                book.processingStatus !== "READY" &&
-                book.processingStatus !== "FAILED"
-              }
-            />
+            <BookDeleteButton bookId={book.id} />
           </div>
         </aside>
 

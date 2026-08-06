@@ -6,7 +6,7 @@ import { LoaderCircle, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-export function BookDeleteButton({ bookId, disabled }: { bookId: string; disabled: boolean }) {
+export function BookDeleteButton({ bookId }: { bookId: string }) {
   const router = useRouter();
   const [error, setError] = useState<string>();
   const [isPending, startTransition] = useTransition();
@@ -21,5 +21,5 @@ export function BookDeleteButton({ bookId, disabled }: { bookId: string; disable
     });
   };
 
-  return <div className="space-y-2"><Button type="button" variant="destructive" onClick={handleDelete} disabled={disabled || isPending}>{isPending ? <LoaderCircle className="animate-spin" /> : <Trash2 />}Delete book</Button>{error && <p role="alert" className="text-destructive text-xs">{error}</p>}</div>;
+  return <div className="space-y-2"><Button type="button" variant="destructive" onClick={handleDelete} disabled={isPending}>{isPending ? <LoaderCircle className="animate-spin" /> : <Trash2 />}Delete book</Button>{error && <p role="alert" className="text-destructive text-xs">{error}</p>}</div>;
 }

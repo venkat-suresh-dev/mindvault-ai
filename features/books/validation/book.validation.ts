@@ -13,6 +13,12 @@ export const createBookMetadataSchema = z.object({
   fileSize: z.number().int().positive().max(BOOK_UPLOAD_LIMITS.pdfBytes),
 });
 
+export const uploadedPdfReferenceSchema = z.object({
+  pathname: z.string().trim().min(1).max(512),
+  url: z.string().url(),
+  size: z.number().int().positive().max(BOOK_UPLOAD_LIMITS.pdfBytes),
+});
+
 const uploadedFileSchema = z.custom<File>((value) => typeof File !== "undefined" && value instanceof File);
 
 export const processBookUploadSchema = z.object({

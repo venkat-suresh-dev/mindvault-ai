@@ -14,6 +14,7 @@ interface BookSegmentInsert {
 
 export interface PersistedBookSegment {
   id: string;
+  segmentIndex: number;
   text: string;
 }
 
@@ -55,11 +56,18 @@ export async function findBookEmbeddingSummary(bookId: string): Promise<BookEmbe
 export async function findBookSegmentsWithoutEmbeddings(bookId: string): Promise<PersistedBookSegment[]> {
   await connectToDatabase();
   const segments = await BookSegmentModel.find({ bookId, embedding: { $exists: false } })
-    .select({ _id: 1, text: 1 })
+    .select({ _id: 1, segmentIndex: 1, text: 1 })
     .sort({ segmentIndex: 1 })
     .lean();
 
-  return segments.map((segment) => ({ id: segment._id.toString(), text: segment.text }));
+  return segments.map((segment) => ({ id: segment._id.toString(), segmentIndex: segment.segmentIndex, text: segment.text }));
+}
+
+export async function findBookSegmentsWithoutEmbeddingsPage(bookId: string, afterSegmentIndex: number | undefined, limit: number): Promise<PersistedBookSegment[]> {
+  await connectToDatabase();
+  const filter = { bookId, embedding: { $exists: false }, ...(afterSegmentIndex === undefined ? {} : { segmentIndex: { $gt: afterSegmentIndex } }) };
+  const segments = await BookSegmentModel.find(filter).select({ _id: 1, segmentIndex: 1, text: 1 }).sort({ segmentIndex: 1 }).limit(limit).lean();
+  return segments.map((segment) => ({ id: segment._id.toString(), segmentIndex: segment.segmentIndex, text: segment.text }));
 }
 
 export async function findOrderedBookSegments(bookId: string): Promise<OrderedBookSegment[]> {

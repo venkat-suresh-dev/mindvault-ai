@@ -220,6 +220,8 @@ The retrieval and generation flow is intentionally separated:
 
 This keeps retrieval grounded, book-scoped, and independent from generation.
 
+Knowledge regeneration preserves the last completed artifact while a separate `KnowledgeGeneration` tracks progress, retries, cancellation, and resumable batch checkpoints. The knowledge API returns `completedArtifact` and `activeGeneration`; duplicate active requests for the same user, book, and artifact type reuse the existing generation. AI accounting is recorded per generation-provider and embedding-provider attempt without storing prompts, source text, vectors, or secrets.
+
 ## User Experience
 
 The current interface includes:

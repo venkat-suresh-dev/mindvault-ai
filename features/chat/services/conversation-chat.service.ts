@@ -6,6 +6,8 @@ import { ConversationSummaryService } from "@/features/conversations/services/co
 import { ConversationService } from "@/features/conversations/services/conversation.service";
 import { MessageService } from "@/features/conversations/services/message.service";
 import { aiConfig } from "@/lib/config/ai.config";
+import { logOperation, safeErrorMetadata } from "@/lib/observability/logger";
+import { captureException } from "@/lib/observability/telemetry";
 
 export class ConversationChatService {
   public constructor(
@@ -15,7 +17,8 @@ export class ConversationChatService {
     private readonly chatService = new ChatService(),
   ) {}
 
-  public async *answer(input: { bookId: string; clerkId: string; question: string; conversationId?: string }): AsyncIterable<ChatStreamEvent> {
+  public async *answer(input: { bookId: string; clerkId: string; question: string; conversationId?: string; operationId?: string }): AsyncIterable<ChatStreamEvent> {
+    const startedAt = Date.now();
     const conversation = input.conversationId
       ? await this.conversationService.get({ conversationId: input.conversationId, bookId: input.bookId, clerkId: input.clerkId })
       : await this.conversationService.create(input.bookId, input.clerkId, createConversationTitle(input.question));
@@ -31,8 +34,10 @@ export class ConversationChatService {
         answer += text;
         yield { type: "text", text };
       }
+      logOperation("info", "chat.generation.completed", startedAt, { operationId: input.operationId });
     } catch (error) {
-      console.error("Conversation answer stream failed.", error);
+      logOperation("error", "chat.generation.failed", startedAt, { operationId: input.operationId, ...safeErrorMetadata(error) });
+      await captureException(error, { operationId: input.operationId, operation: "chat-generation" });
       yield { type: "error", text: "Generation temporarily unavailable. Please try again in a few moments." };
       return;
     }

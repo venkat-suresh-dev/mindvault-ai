@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { createBook } from "@/features/books/actions/create-book";
+import { upload } from "@vercel/blob/client";
 import {
   BOOK_PAGE_CONTENT,
   BOOK_UPLOAD_FIELD_CONTENT,
@@ -22,7 +23,7 @@ import { UploadSuccessState } from "./upload-success-state";
 import type { BookRecord } from "@/features/books/types/book";
 
 export function BookUploadForm() {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, userId } = useAuth();
   const [submissionMessage, setSubmissionMessage] = useState<string>();
   const [completedBook, setCompletedBook] = useState<BookRecord>();
   const [isSubmitting, startTransition] = useTransition();
@@ -61,16 +62,11 @@ export function BookUploadForm() {
       return;
     }
 
-    const formData = new FormData();
-    formData.set("title", values.title);
-    formData.set("author", values.author);
-    formData.set("pdfFile", values.pdfFile);
-    formData.set("voicePersona", values.voicePersona);
-    if (values.coverImage) formData.set("coverImage", values.coverImage);
-
     startTransition(async () => {
       try {
-        const result = await createBook(formData);
+        if (!userId) throw new Error("Authentication is required.");
+        const blob = await upload(`books/${userId}-${crypto.randomUUID()}-${values.pdfFile.name}`, values.pdfFile, { access: "private", handleUploadUrl: "/api/books/upload", multipart: values.pdfFile.size > 4 * 1024 * 1024, contentType: values.pdfFile.type });
+        const result = await createBook({ title: values.title, author: values.author, persona: values.voicePersona, pdfUpload: { pathname: blob.pathname, url: blob.url, size: values.pdfFile.size } });
         if (result.success && result.data) {
           setCompletedBook(result.data);
           return;
